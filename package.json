@@ -1,0 +1,22 @@
+{
+  "name": "typst-ygo-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "sync:resources": "node scripts/sync-resources.mjs"
+  },
+  "dependencies": {
+    "@myriaddreamin/typst.ts": "^0.7.0",
+    "@myriaddreamin/typst-ts-renderer": "^0.7.0",
+    "@myriaddreamin/typst-ts-web-compiler": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}
