@@ -15,6 +15,8 @@ export type IndexedCard = {
   kind: CardKind;
   card: RawCard;
   searchText: string;
+  compactSearchText: string;
+  compactSearchChars: ReadonlySet<string>;
 };
 
 export type AssetManifest = {
