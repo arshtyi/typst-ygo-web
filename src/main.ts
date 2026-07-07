@@ -5,6 +5,17 @@ import type { AssetManifest, CardKind, IndexedCard, RawCard } from "./types";
 
 type KindFilter = CardKind | "all";
 
+type UrlState = {
+  kind: KindFilter;
+  query: string;
+  cardId: number | null;
+};
+
+type SourceLink = {
+  label: string;
+  url: string;
+};
+
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) {
   throw new Error("Missing #app root.");
@@ -16,7 +27,10 @@ app.innerHTML = `
       <header class="topbar">
         <div>
           <h1>typst-ygo web</h1>
-          <p id="resourceMeta">资源未加载</p>
+          <details class="resource-details">
+            <summary><span id="resourceSummary">资源未加载</span></summary>
+            <div id="resourceMeta" class="resource-meta">资源未加载</div>
+          </details>
         </div>
       </header>
 
@@ -25,7 +39,7 @@ app.innerHTML = `
         <div class="segmented" aria-label="card kind">
           <button class="active" type="button" data-kind="all">全部</button>
           <button type="button" data-kind="ot">OCG/TCG</button>
-          <button type="button" data-kind="rd">Rush Duel</button>
+          <button type="button" data-kind="rd">RD</button>
         </div>
       </div>
 
@@ -37,6 +51,7 @@ app.innerHTML = `
       <div class="preview-toolbar">
         <div id="selection" class="selection">未选择卡片</div>
         <div class="actions">
+          <button id="randomButton" type="button" disabled>随机一卡</button>
           <button id="downloadButton" type="button" disabled>下载图片</button>
         </div>
       </div>
@@ -48,11 +63,13 @@ app.innerHTML = `
 `;
 
 const searchInput = getElement<HTMLInputElement>("searchInput");
-const resourceMeta = getElement<HTMLParagraphElement>("resourceMeta");
+const resourceSummary = getElement<HTMLSpanElement>("resourceSummary");
+const resourceMeta = getElement<HTMLDivElement>("resourceMeta");
 const statusNode = getElement<HTMLDivElement>("status");
 const resultsNode = getElement<HTMLDivElement>("results");
 const selectionNode = getElement<HTMLDivElement>("selection");
 const downloadButton = getElement<HTMLButtonElement>("downloadButton");
+const randomButton = getElement<HTMLButtonElement>("randomButton");
 const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
 
@@ -65,21 +82,23 @@ let searchTimer: number | null = null;
 void initialize();
 
 searchInput.addEventListener("input", () => {
-  if (searchTimer !== null) {
-    window.clearTimeout(searchTimer);
-  }
-  searchTimer = window.setTimeout(renderSearchResults, 120);
+  clearSearchTimer();
+  searchTimer = window.setTimeout(() => {
+    searchTimer = null;
+    renderSearchResults();
+  }, 120);
 });
 
 for (const button of kindButtons) {
   button.addEventListener("click", () => {
-    kindFilter = button.dataset.kind as KindFilter;
-    for (const item of kindButtons) {
-      item.classList.toggle("active", item === button);
-    }
+    setKindFilter(parseKindFilter(button.dataset.kind ?? ""));
     renderSearchResults();
   });
 }
+
+randomButton.addEventListener("click", () => {
+  void selectRandomCard();
+});
 
 downloadButton.addEventListener("click", () => {
   void downloadSelectedCard();
@@ -94,25 +113,48 @@ async function initialize(): Promise<void> {
     ]);
 
     allCards = [...indexCards("ot", otCards), ...indexCards("rd", rdCards)];
-    resourceMeta.textContent = `已加载 ${(otCards.length + rdCards.length).toLocaleString("zh-CN")} 张卡`;
-    setStatus("输入关键词后显示匹配结果。");
+    renderResourceMeta(otCards.length, rdCards.length);
+    randomButton.disabled = !hasRandomCards();
+    await applyUrlState(readUrlState());
   } catch (error) {
     setStatus(
       `资源加载失败：${formatError(error)}。本地运行 npm run sync:resources，或在 GitHub Actions 手动选择 refresh_resources=true。`,
       true,
     );
-    resourceMeta.textContent = "资源不可用";
+    resourceSummary.textContent = "资源不可用";
+    resourceMeta.textContent = "资源加载失败，查看状态栏获取详情。";
   }
 }
 
-function renderSearchResults(): void {
+async function selectRandomCard(): Promise<void> {
+  const candidates = cardsForKind(kindFilter);
+  if (candidates.length === 0) {
+    setStatus(`当前${kindFilterLabel(kindFilter)}没有可随机的卡片。`, true);
+    return;
+  }
+
+  const item = candidates[randomIndex(candidates.length)];
+  clearSearchTimer();
+  searchInput.value = "";
+
+  const button = createResultButton(item);
+  resultsNode.replaceChildren(button);
+  selectCard(item, button);
+
+  await renderSelectedCard(`已从${kindFilterLabel(kindFilter)}随机抽取：${item.card.name}`);
+}
+
+function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): IndexedCard[] {
   resultsNode.replaceChildren();
-  clearSelection();
+  clearSelection({ syncUrl: false });
 
   const results = searchCards(allCards, searchInput.value, kindFilter);
   if (results.length === 0) {
     setStatus(searchInput.value.trim() ? "没有匹配结果。" : "输入关键词后显示匹配结果。");
-    return;
+    if (syncUrl) {
+      updateUrlState();
+    }
+    return [];
   }
 
   setStatus(`显示 ${results.length.toLocaleString("zh-CN")} 条结果。`);
@@ -121,6 +163,10 @@ function renderSearchResults(): void {
     fragment.appendChild(createResultButton(item));
   }
   resultsNode.appendChild(fragment);
+  if (syncUrl) {
+    updateUrlState();
+  }
+  return results;
 }
 
 function createResultButton(item: IndexedCard): HTMLButtonElement {
@@ -128,6 +174,8 @@ function createResultButton(item: IndexedCard): HTMLButtonElement {
   button.type = "button";
   button.className = "result-item";
   button.setAttribute("role", "option");
+  button.dataset.cardId = String(item.card.id);
+  button.dataset.kind = item.kind;
 
   const title = document.createElement("span");
   title.className = "result-title";
@@ -150,7 +198,7 @@ function createResultButton(item: IndexedCard): HTMLButtonElement {
   return button;
 }
 
-function selectCard(item: IndexedCard, button: HTMLButtonElement): void {
+function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = true }: { syncUrl?: boolean } = {}): void {
   selected = item;
   for (const node of resultsNode.querySelectorAll(".selected")) {
     node.classList.remove("selected");
@@ -161,17 +209,23 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement): void {
   selectionNode.title = selectionLabel;
   downloadButton.disabled = false;
   setEmptyPreview(`已选择：${item.card.name}`);
+  if (syncUrl) {
+    updateUrlState();
+  }
 }
 
-function clearSelection(): void {
+function clearSelection({ syncUrl = true }: { syncUrl?: boolean } = {}): void {
   selected = null;
   selectionNode.textContent = "未选择卡片";
   selectionNode.removeAttribute("title");
   downloadButton.disabled = true;
   setEmptyPreview("等待渲染");
+  if (syncUrl) {
+    updateUrlState();
+  }
 }
 
-async function renderSelectedCard(): Promise<void> {
+async function renderSelectedCard(successMessage = "渲染完成。"): Promise<void> {
   if (!selected || !manifest) {
     return;
   }
@@ -181,7 +235,7 @@ async function renderSelectedCard(): Promise<void> {
     const svg = await renderCardSvg(manifest, selected.kind, selected.card);
     showSvgPreview(svg, selected);
     downloadButton.disabled = false;
-    setStatus("渲染完成。");
+    setStatus(successMessage);
   } catch (error) {
     setStatus(`渲染失败：${formatError(error)}`, true);
     setEmptyPreview("渲染失败");
@@ -255,6 +309,7 @@ function parseSvgLength(value: string | null): number {
 
 function setBusy(busy: boolean, message?: string): void {
   downloadButton.disabled = busy || !selected;
+  randomButton.disabled = busy || !hasRandomCards();
   searchInput.disabled = busy;
   for (const button of kindButtons) {
     button.disabled = busy;
@@ -280,8 +335,258 @@ function setStatus(message: string, error = false): void {
   statusNode.classList.toggle("error", error);
 }
 
+async function applyUrlState(state: UrlState): Promise<void> {
+  setKindFilter(state.kind);
+  searchInput.value = state.query;
+
+  if (state.query.trim()) {
+    renderSearchResults({ syncUrl: false });
+  } else {
+    resultsNode.replaceChildren();
+    clearSelection({ syncUrl: false });
+    setStatus("输入关键词后显示匹配结果。");
+  }
+
+  if (state.cardId === null) {
+    updateUrlState();
+    return;
+  }
+
+  const item = findCardById(state.cardId, state.kind);
+  if (!item) {
+    setStatus(`链接中的卡片 ID ${state.cardId} 不存在。`, true);
+    updateUrlState();
+    return;
+  }
+
+  let button = findRenderedResultButton(item);
+  if (!button) {
+    button = createResultButton(item);
+    if (resultsNode.childElementCount === 0) {
+      resultsNode.append(button);
+    } else {
+      resultsNode.prepend(button);
+    }
+  }
+
+  selectCard(item, button, { syncUrl: false });
+  updateUrlState();
+  await renderSelectedCard(`已从链接打开：${item.card.name}`);
+}
+
+function renderResourceMeta(otCount: number, rdCount: number): void {
+  const total = otCount + rdCount;
+  const generatedAt = formatGeneratedAt(manifest?.generatedAt);
+  const sourceLinks = sourceLinksFromManifest(manifest);
+
+  resourceSummary.textContent = `资源：${total.toLocaleString("zh-CN")} 张卡`;
+  resourceSummary.title = `OCG/TCG ${otCount.toLocaleString("zh-CN")} / RD ${rdCount.toLocaleString("zh-CN")}`;
+
+  const list = document.createElement("dl");
+  list.className = "resource-list";
+
+  appendResourceRow(list, "卡片数量", document.createTextNode(`总计 ${total.toLocaleString("zh-CN")} 张`));
+  appendResourceRow(
+    list,
+    "环境",
+    document.createTextNode(`OCG/TCG ${otCount.toLocaleString("zh-CN")} / RD ${rdCount.toLocaleString("zh-CN")}`),
+  );
+  appendResourceRow(list, "生成时间", document.createTextNode(generatedAt));
+
+  if (sourceLinks.length > 0) {
+    const sources = document.createDocumentFragment();
+    for (const [index, link] of sourceLinks.entries()) {
+      if (index > 0) {
+        sources.append(document.createTextNode(" / "));
+      }
+      sources.append(createSourceAnchor(link));
+    }
+    appendResourceRow(list, "来源", sources);
+  }
+
+  resourceMeta.replaceChildren(list);
+  resourceMeta.title = manifest?.generatedAt ? `generatedAt: ${manifest.generatedAt}` : "";
+}
+
+function appendResourceRow(list: HTMLDListElement, label: string, value: Node): void {
+  const term = document.createElement("dt");
+  term.textContent = label;
+
+  const description = document.createElement("dd");
+  description.append(value);
+
+  list.append(term, description);
+}
+
+function createSourceAnchor(link: SourceLink): HTMLAnchorElement {
+  const anchor = document.createElement("a");
+  anchor.href = link.url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  anchor.textContent = link.label;
+  return anchor;
+}
+
+function sourceLinksFromManifest(assetManifest: AssetManifest | null): SourceLink[] {
+  const sources = assetManifest?.sources;
+  if (!isRecord(sources)) {
+    return [];
+  }
+
+  const links: SourceLink[] = [];
+  appendSourceLink(links, "typst-ygo", sources.typstYgo);
+  appendSourceLink(links, "素材", sources.assets);
+
+  if (typeof sources.cards === "string") {
+    appendSourceLink(links, "卡片数据", sources.cards);
+  } else if (isRecord(sources.cards)) {
+    appendSourceLink(links, "OCG/TCG 数据", sources.cards.ot);
+    appendSourceLink(links, "RD 数据", sources.cards.rd);
+  }
+
+  return links;
+}
+
+function appendSourceLink(links: SourceLink[], label: string, value: unknown): void {
+  if (typeof value === "string" && /^https?:\/\//iu.test(value)) {
+    links.push({ label, url: value });
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function formatGeneratedAt(value: string | undefined): string {
+  if (!value) {
+    return "未知";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function readUrlState(): UrlState {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    kind: parseKindFilter(params.get("kind")),
+    query: params.get("q") ?? "",
+    cardId: parseCardId(params.get("id")),
+  };
+}
+
+function updateUrlState(): void {
+  const url = new URL(window.location.href);
+
+  if (kindFilter === "all") {
+    url.searchParams.delete("kind");
+  } else {
+    url.searchParams.set("kind", kindFilter);
+  }
+
+  const query = searchInput.value.trim();
+  if (query) {
+    url.searchParams.set("q", query);
+  } else {
+    url.searchParams.delete("q");
+  }
+
+  if (selected) {
+    url.searchParams.set("id", String(selected.card.id));
+  } else {
+    url.searchParams.delete("id");
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl !== currentUrl) {
+    window.history.replaceState(null, "", nextUrl);
+  }
+}
+
+function parseKindFilter(value: string | null): KindFilter {
+  if (value === "ot" || value === "rd") {
+    return value;
+  }
+  return "all";
+}
+
+function parseCardId(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function setKindFilter(kind: KindFilter): void {
+  kindFilter = kind;
+  for (const button of kindButtons) {
+    button.classList.toggle("active", parseKindFilter(button.dataset.kind ?? "") === kind);
+  }
+  randomButton.disabled = !hasRandomCards();
+}
+
+function findCardById(cardId: number, kind: KindFilter): IndexedCard | null {
+  return cardsForKind(kind).find((item) => item.card.id === cardId) ?? null;
+}
+
+function findRenderedResultButton(item: IndexedCard): HTMLButtonElement | null {
+  const cardId = String(item.card.id);
+  for (const button of resultsNode.querySelectorAll<HTMLButtonElement>(".result-item")) {
+    if (button.dataset.kind === item.kind && button.dataset.cardId === cardId) {
+      return button;
+    }
+  }
+  return null;
+}
+
+function clearSearchTimer(): void {
+  if (searchTimer !== null) {
+    window.clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+}
+
 function kindLabel(kind: CardKind): string {
-  return kind === "ot" ? "OCG/TCG" : "Rush Duel";
+  return kind === "ot" ? "OCG/TCG" : "RD";
+}
+
+function kindFilterLabel(kind: KindFilter): string {
+  return kind === "all" ? "全部环境" : kindLabel(kind);
+}
+
+function cardsForKind(kind: KindFilter): IndexedCard[] {
+  if (kind === "all") {
+    return allCards;
+  }
+  return allCards.filter((item) => item.kind === kind);
+}
+
+function hasRandomCards(): boolean {
+  return cardsForKind(kindFilter).length > 0;
+}
+
+function randomIndex(length: number): number {
+  const range = 0x100000000;
+  const limit = range - (range % length);
+  const buffer = new Uint32Array(1);
+  let value = 0;
+
+  do {
+    window.crypto.getRandomValues(buffer);
+    value = buffer[0];
+  } while (value >= limit);
+
+  return value % length;
 }
 
 function formatError(error: unknown): string {
