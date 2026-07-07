@@ -25,7 +25,7 @@ app.innerHTML = `
         <div class="segmented" aria-label="card kind">
           <button class="active" type="button" data-kind="all">全部</button>
           <button type="button" data-kind="ot">OCG/TCG</button>
-          <button type="button" data-kind="rd">Rush Duel</button>
+          <button type="button" data-kind="rd">RD</button>
         </div>
       </div>
 
@@ -37,6 +37,7 @@ app.innerHTML = `
       <div class="preview-toolbar">
         <div id="selection" class="selection">未选择卡片</div>
         <div class="actions">
+          <button id="randomButton" type="button" disabled>随机一卡</button>
           <button id="downloadButton" type="button" disabled>下载图片</button>
         </div>
       </div>
@@ -53,6 +54,7 @@ const statusNode = getElement<HTMLDivElement>("status");
 const resultsNode = getElement<HTMLDivElement>("results");
 const selectionNode = getElement<HTMLDivElement>("selection");
 const downloadButton = getElement<HTMLButtonElement>("downloadButton");
+const randomButton = getElement<HTMLButtonElement>("randomButton");
 const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
 
@@ -65,10 +67,11 @@ let searchTimer: number | null = null;
 void initialize();
 
 searchInput.addEventListener("input", () => {
-  if (searchTimer !== null) {
-    window.clearTimeout(searchTimer);
-  }
-  searchTimer = window.setTimeout(renderSearchResults, 120);
+  clearSearchTimer();
+  searchTimer = window.setTimeout(() => {
+    searchTimer = null;
+    renderSearchResults();
+  }, 120);
 });
 
 for (const button of kindButtons) {
@@ -77,9 +80,14 @@ for (const button of kindButtons) {
     for (const item of kindButtons) {
       item.classList.toggle("active", item === button);
     }
+    randomButton.disabled = !hasRandomCards();
     renderSearchResults();
   });
 }
+
+randomButton.addEventListener("click", () => {
+  void selectRandomCard();
+});
 
 downloadButton.addEventListener("click", () => {
   void downloadSelectedCard();
@@ -95,6 +103,7 @@ async function initialize(): Promise<void> {
 
     allCards = [...indexCards("ot", otCards), ...indexCards("rd", rdCards)];
     resourceMeta.textContent = `已加载 ${(otCards.length + rdCards.length).toLocaleString("zh-CN")} 张卡`;
+    randomButton.disabled = !hasRandomCards();
     setStatus("输入关键词后显示匹配结果。");
   } catch (error) {
     setStatus(
@@ -103,6 +112,24 @@ async function initialize(): Promise<void> {
     );
     resourceMeta.textContent = "资源不可用";
   }
+}
+
+async function selectRandomCard(): Promise<void> {
+  const candidates = cardsForKind(kindFilter);
+  if (candidates.length === 0) {
+    setStatus(`当前${kindFilterLabel(kindFilter)}没有可随机的卡片。`, true);
+    return;
+  }
+
+  const item = candidates[randomIndex(candidates.length)];
+  clearSearchTimer();
+  searchInput.value = "";
+
+  const button = createResultButton(item);
+  resultsNode.replaceChildren(button);
+  selectCard(item, button);
+
+  await renderSelectedCard(`已从${kindFilterLabel(kindFilter)}随机抽取：${item.card.name}`);
 }
 
 function renderSearchResults(): void {
@@ -171,7 +198,7 @@ function clearSelection(): void {
   setEmptyPreview("等待渲染");
 }
 
-async function renderSelectedCard(): Promise<void> {
+async function renderSelectedCard(successMessage = "渲染完成。"): Promise<void> {
   if (!selected || !manifest) {
     return;
   }
@@ -181,7 +208,7 @@ async function renderSelectedCard(): Promise<void> {
     const svg = await renderCardSvg(manifest, selected.kind, selected.card);
     showSvgPreview(svg, selected);
     downloadButton.disabled = false;
-    setStatus("渲染完成。");
+    setStatus(successMessage);
   } catch (error) {
     setStatus(`渲染失败：${formatError(error)}`, true);
     setEmptyPreview("渲染失败");
@@ -255,6 +282,7 @@ function parseSvgLength(value: string | null): number {
 
 function setBusy(busy: boolean, message?: string): void {
   downloadButton.disabled = busy || !selected;
+  randomButton.disabled = busy || !hasRandomCards();
   searchInput.disabled = busy;
   for (const button of kindButtons) {
     button.disabled = busy;
@@ -280,8 +308,44 @@ function setStatus(message: string, error = false): void {
   statusNode.classList.toggle("error", error);
 }
 
+function clearSearchTimer(): void {
+  if (searchTimer !== null) {
+    window.clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+}
+
 function kindLabel(kind: CardKind): string {
-  return kind === "ot" ? "OCG/TCG" : "Rush Duel";
+  return kind === "ot" ? "OCG/TCG" : "RD";
+}
+
+function kindFilterLabel(kind: KindFilter): string {
+  return kind === "all" ? "全部环境" : kindLabel(kind);
+}
+
+function cardsForKind(kind: KindFilter): IndexedCard[] {
+  if (kind === "all") {
+    return allCards;
+  }
+  return allCards.filter((item) => item.kind === kind);
+}
+
+function hasRandomCards(): boolean {
+  return cardsForKind(kindFilter).length > 0;
+}
+
+function randomIndex(length: number): number {
+  const range = 0x100000000;
+  const limit = range - (range % length);
+  const buffer = new Uint32Array(1);
+  let value = 0;
+
+  do {
+    window.crypto.getRandomValues(buffer);
+    value = buffer[0];
+  } while (value >= limit);
+
+  return value % length;
 }
 
 function formatError(error: unknown): string {
