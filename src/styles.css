@@ -323,10 +323,8 @@ input:disabled {
 
 .preview-card {
   display: block;
-  width: min(100cqw, calc(100cqh * 1394 / 2031));
-  aspect-ratio: 1394 / 2031;
-  border: 1px solid #cfc8b8;
-  background: #ffffff;
+  width: min(100cqw, calc(100cqh * var(--preview-card-ratio)));
+  aspect-ratio: var(--preview-card-ratio);
   overflow: hidden;
 }
 

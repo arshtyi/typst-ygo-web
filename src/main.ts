@@ -274,7 +274,7 @@ function showSvgPreview(svg: string, item: IndexedCard): void {
   previewCard.setAttribute("aria-label", `${item.card.name} preview`);
 
   const inlineSvg = document.importNode(parsedSvg, true) as unknown as SVGSVGElement;
-  normalizeSvg(inlineSvg);
+  previewCard.style.setProperty("--preview-card-ratio", String(normalizeSvg(inlineSvg)));
   previewCard.append(inlineSvg);
   previewNode.replaceChildren(previewCard);
 }
@@ -286,9 +286,8 @@ function setEmptyPreview(message: string): void {
   previewNode.replaceChildren(empty);
 }
 
-function normalizeSvg(svg: SVGSVGElement): void {
-  const width = parseSvgLength(svg.getAttribute("width"));
-  const height = parseSvgLength(svg.getAttribute("height"));
+function normalizeSvg(svg: SVGSVGElement): number {
+  const { width, height } = svgDimensions(svg);
   if (!svg.hasAttribute("viewBox") && width > 0 && height > 0) {
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   }
@@ -296,6 +295,25 @@ function normalizeSvg(svg: SVGSVGElement): void {
   svg.setAttribute("width", "100%");
   svg.setAttribute("height", "100%");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  return width / height;
+}
+
+function svgDimensions(svg: SVGSVGElement): { width: number; height: number } {
+  const viewBox = svg
+    .getAttribute("viewBox")
+    ?.trim()
+    .split(/[\s,]+/u)
+    .map((value) => Number.parseFloat(value));
+  if (viewBox?.length === 4 && viewBox[2] > 0 && viewBox[3] > 0) {
+    return { width: viewBox[2], height: viewBox[3] };
+  }
+
+  const width = parseSvgLength(svg.getAttribute("width"));
+  const height = parseSvgLength(svg.getAttribute("height"));
+  if (width <= 0 || height <= 0) {
+    throw new Error("Typst SVG is missing valid page dimensions.");
+  }
+  return { width, height };
 }
 
 function parseSvgLength(value: string | null): number {
