@@ -25,52 +25,58 @@ if (!app) {
 
 app.innerHTML = `
   <main class="app-shell">
-    <section class="search-pane" aria-label="card search">
+    <section class="search-pane" aria-label="Card search">
       <header class="topbar">
         <div>
           <h1>typst-ygo web</h1>
           <details class="resource-details">
-            <summary><span id="resourceSummary">资源未加载</span></summary>
-            <div id="resourceMeta" class="resource-meta">资源未加载</div>
+            <summary><span id="resourceSummary">Loading card library...</span></summary>
+            <div id="resourceMeta" class="resource-meta">Card details will appear when loading is complete.</div>
           </details>
         </div>
       </header>
 
       <div class="search-controls">
-        <input id="searchInput" type="search" autocomplete="off" placeholder="ID / 名称 / 效果文本" />
-        <div class="segmented" aria-label="card kind">
-          <button class="active" type="button" data-kind="all">全部</button>
+        <input
+          id="searchInput"
+          type="search"
+          autocomplete="off"
+          placeholder="Search by ID, name, or card text"
+          aria-label="Search cards"
+        />
+        <div class="segmented" aria-label="Card format">
+          <button class="active" type="button" data-kind="all">All</button>
           <button type="button" data-kind="ot">OCG/TCG</button>
           <button type="button" data-kind="rd">RD</button>
         </div>
       </div>
 
-      <div id="status" class="status" role="status">正在加载资源...</div>
-      <div id="results" class="results" role="listbox" aria-label="search results"></div>
+      <div id="status" class="status" role="status">Loading the card library...</div>
+      <div id="results" class="results" role="listbox" aria-label="Search results"></div>
     </section>
 
-    <section class="preview-pane" aria-label="card preview">
+    <section class="preview-pane" aria-label="Card preview">
       <div class="preview-toolbar">
-        <div id="selection" class="selection">未选择卡片</div>
+        <div id="selection" class="selection">No card selected</div>
         <div class="preview-controls">
-          <div class="render-options" role="group" aria-label="渲染选项">
+          <div class="render-options" role="group" aria-label="Card rendering options">
             <label class="render-option">
               <input id="compressDescriptionInput" type="checkbox" role="switch" checked />
-              <span>压缩文本</span>
+              <span>Compact card text</span>
             </label>
             <label class="render-option">
               <input id="drawPasswordInput" type="checkbox" role="switch" checked />
-              <span>显示卡密</span>
+              <span>Show passcode</span>
             </label>
           </div>
           <div class="actions">
-            <button id="randomButton" type="button" disabled>随机一卡</button>
-            <button id="downloadButton" type="button" disabled>下载图片</button>
+            <button id="randomButton" type="button" disabled>Random card</button>
+            <button id="downloadButton" type="button" disabled>Download PNG</button>
           </div>
         </div>
       </div>
       <div id="preview" class="preview">
-        <div class="preview-empty">等待渲染</div>
+        <div class="preview-empty">Search for a card to get started.</div>
       </div>
     </section>
   </main>
@@ -125,7 +131,7 @@ for (const input of renderOptionInputs) {
   input.addEventListener("change", () => {
     updateUrlState();
     if (selected && manifest) {
-      void renderSelectedCard("渲染选项已更新。");
+      void renderSelectedCard("Preview updated.");
     }
   });
 }
@@ -143,19 +149,18 @@ async function initialize(): Promise<void> {
     randomButton.disabled = !hasRandomCards();
     await applyUrlState(readUrlState());
   } catch (error) {
-    setStatus(
-      `资源加载失败：${formatError(error)}。本地运行 npm run sync:resources，或在 GitHub Actions 手动选择 refresh_resources=true。`,
-      true,
-    );
-    resourceSummary.textContent = "资源不可用";
-    resourceMeta.textContent = "资源加载失败，查看状态栏获取详情。";
+    console.error("Failed to load the card library.", error);
+    setStatus("We couldn't load the card library. Refresh the page to try again.", true);
+    resourceSummary.textContent = "Card library unavailable";
+    resourceMeta.textContent = "Try refreshing the page. The data source may be temporarily unavailable.";
   }
 }
 
 async function selectRandomCard(): Promise<void> {
   const candidates = cardsForKind(kindFilter);
   if (candidates.length === 0) {
-    setStatus(`当前${kindFilterLabel(kindFilter)}没有可随机的卡片。`, true);
+    const format = kindFilter === "all" ? "" : `${kindLabel(kindFilter)} `;
+    setStatus(`No ${format}cards are available right now.`, true);
     return;
   }
 
@@ -167,7 +172,7 @@ async function selectRandomCard(): Promise<void> {
   resultsNode.replaceChildren(button);
   selectCard(item, button);
 
-  await renderSelectedCard(`已从${kindFilterLabel(kindFilter)}随机抽取：${item.card.name}`);
+  await renderSelectedCard(`Here's a random card: ${item.card.name}`);
 }
 
 function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): IndexedCard[] {
@@ -176,14 +181,16 @@ function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): In
 
   const results = searchCards(allCards, searchInput.value, kindFilter);
   if (results.length === 0) {
-    setStatus(searchInput.value.trim() ? "没有匹配结果。" : "输入关键词后显示匹配结果。");
+    const query = searchInput.value.trim();
+    setStatus(query ? `No cards match "${query}".` : "Search by card ID, name, or card text.");
     if (syncUrl) {
       updateUrlState();
     }
     return [];
   }
 
-  setStatus(`显示 ${results.length.toLocaleString("zh-CN")} 条结果。`);
+  const resultLabel = results.length === 1 ? "card" : "cards";
+  setStatus(`Showing ${results.length.toLocaleString("en-US")} matching ${resultLabel}.`);
   const fragment = document.createDocumentFragment();
   for (const item of results) {
     fragment.appendChild(createResultButton(item));
@@ -234,7 +241,7 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
   selectionNode.textContent = selectionLabel;
   selectionNode.title = selectionLabel;
   downloadButton.disabled = false;
-  setEmptyPreview(`已选择：${item.card.name}`);
+  setEmptyPreview("Double-click this card to see the preview.");
   if (syncUrl) {
     updateUrlState();
   }
@@ -242,29 +249,30 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
 
 function clearSelection({ syncUrl = true }: { syncUrl?: boolean } = {}): void {
   selected = null;
-  selectionNode.textContent = "未选择卡片";
+  selectionNode.textContent = "No card selected";
   selectionNode.removeAttribute("title");
   downloadButton.disabled = true;
-  setEmptyPreview("等待渲染");
+  setEmptyPreview("Search for a card to get started.");
   if (syncUrl) {
     updateUrlState();
   }
 }
 
-async function renderSelectedCard(successMessage = "渲染完成。"): Promise<void> {
+async function renderSelectedCard(successMessage = "Preview ready."): Promise<void> {
   if (!selected || !manifest) {
     return;
   }
 
-  setBusy(true, "正在渲染...");
+  setBusy(true, "Rendering your preview...");
   try {
     const svg = await renderCardSvg(manifest, selected.kind, selected.card, currentRenderOptions());
     showSvgPreview(svg, selected);
     downloadButton.disabled = false;
     setStatus(successMessage);
   } catch (error) {
-    setStatus(`渲染失败：${formatError(error)}`, true);
-    setEmptyPreview("渲染失败");
+    console.error(`Failed to render card ${selected.card.id}.`, error);
+    setStatus("We couldn't render this card. Please try again.", true);
+    setEmptyPreview("The preview isn't available right now.");
   } finally {
     setBusy(false);
   }
@@ -275,13 +283,14 @@ async function downloadSelectedCard(): Promise<void> {
     return;
   }
 
-  setBusy(true, "正在生成图片...");
+  setBusy(true, "Preparing your PNG...");
   try {
     const png = await renderCardPng(manifest, selected.kind, selected.card, currentRenderOptions());
     downloadBytes(png, `${selected.kind}-${selected.card.id}.png`, "image/png");
-    setStatus("图片已生成。");
+    setStatus("Your PNG is ready.");
   } catch (error) {
-    setStatus(`图片生成失败：${formatError(error)}`, true);
+    console.error(`Failed to create a PNG for card ${selected.card.id}.`, error);
+    setStatus("We couldn't create the PNG. Please try again.", true);
   } finally {
     setBusy(false);
   }
@@ -297,7 +306,7 @@ function showSvgPreview(svg: string, item: IndexedCard): void {
   const previewCard = document.createElement("div");
   previewCard.className = "preview-card";
   previewCard.setAttribute("role", "img");
-  previewCard.setAttribute("aria-label", `${item.card.name} preview`);
+  previewCard.setAttribute("aria-label", `${item.card.name} card preview`);
 
   const inlineSvg = document.importNode(parsedSvg, true) as unknown as SVGSVGElement;
   previewCard.style.setProperty("--preview-card-ratio", String(normalizeSvg(inlineSvg)));
@@ -400,7 +409,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
   } else {
     resultsNode.replaceChildren();
     clearSelection({ syncUrl: false });
-    setStatus("输入关键词后显示匹配结果。");
+    setStatus("Search by card ID, name, or card text.");
   }
 
   if (state.cardId === null) {
@@ -410,7 +419,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
 
   const item = findCardById(state.cardId, state.kind);
   if (!item) {
-    setStatus(`链接中的卡片 ID ${state.cardId} 不存在。`, true);
+    setStatus(`Card ${state.cardId} from this shared link isn't available.`, true);
     updateUrlState();
     return;
   }
@@ -427,7 +436,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
 
   selectCard(item, button, { syncUrl: false });
   updateUrlState();
-  await renderSelectedCard(`已从链接打开：${item.card.name}`);
+  await renderSelectedCard(`You're viewing ${item.card.name} from a shared link.`);
 }
 
 function renderResourceMeta(otCount: number, rdCount: number): void {
@@ -435,19 +444,22 @@ function renderResourceMeta(otCount: number, rdCount: number): void {
   const generatedAt = formatGeneratedAt(manifest?.generatedAt);
   const sourceLinks = sourceLinksFromManifest(manifest);
 
-  resourceSummary.textContent = `资源：${total.toLocaleString("zh-CN")} 张卡`;
-  resourceSummary.title = `OCG/TCG ${otCount.toLocaleString("zh-CN")} / RD ${rdCount.toLocaleString("zh-CN")}`;
+  resourceSummary.textContent = `${total.toLocaleString("en-US")} cards loaded`;
+  resourceSummary.title =
+    `OCG/TCG: ${otCount.toLocaleString("en-US")} · Rush Duel: ${rdCount.toLocaleString("en-US")}`;
 
   const list = document.createElement("dl");
   list.className = "resource-list";
 
-  appendResourceRow(list, "卡片数量", document.createTextNode(`总计 ${total.toLocaleString("zh-CN")} 张`));
+  appendResourceRow(list, "Library size", document.createTextNode(`${total.toLocaleString("en-US")} cards`));
   appendResourceRow(
     list,
-    "环境",
-    document.createTextNode(`OCG/TCG ${otCount.toLocaleString("zh-CN")} / RD ${rdCount.toLocaleString("zh-CN")}`),
+    "Formats",
+    document.createTextNode(
+      `OCG/TCG: ${otCount.toLocaleString("en-US")} · Rush Duel: ${rdCount.toLocaleString("en-US")}`,
+    ),
   );
-  appendResourceRow(list, "生成时间", document.createTextNode(generatedAt));
+  appendResourceRow(list, "Last updated", document.createTextNode(generatedAt));
 
   if (sourceLinks.length > 0) {
     const sources = document.createDocumentFragment();
@@ -457,7 +469,7 @@ function renderResourceMeta(otCount: number, rdCount: number): void {
       }
       sources.append(createSourceAnchor(link));
     }
-    appendResourceRow(list, "来源", sources);
+    appendResourceRow(list, "Sources", sources);
   }
 
   resourceMeta.replaceChildren(list);
@@ -491,13 +503,13 @@ function sourceLinksFromManifest(assetManifest: AssetManifest | null): SourceLin
 
   const links: SourceLink[] = [];
   appendSourceLink(links, "typst-ygo", sources.typstYgo);
-  appendSourceLink(links, "素材", sources.assets);
+  appendSourceLink(links, "Card assets", sources.assets);
 
   if (typeof sources.cards === "string") {
-    appendSourceLink(links, "卡片数据", sources.cards);
+    appendSourceLink(links, "Card data", sources.cards);
   } else if (isRecord(sources.cards)) {
-    appendSourceLink(links, "OCG/TCG 数据", sources.cards.ot);
-    appendSourceLink(links, "RD 数据", sources.cards.rd);
+    appendSourceLink(links, "OCG/TCG data", sources.cards.ot);
+    appendSourceLink(links, "RD data", sources.cards.rd);
   }
 
   return links;
@@ -515,7 +527,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function formatGeneratedAt(value: string | undefined): string {
   if (!value) {
-    return "未知";
+    return "Not available";
   }
 
   const date = new Date(value);
@@ -523,7 +535,7 @@ function formatGeneratedAt(value: string | undefined): string {
     return value;
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -654,11 +666,7 @@ function clearSearchTimer(): void {
 }
 
 function kindLabel(kind: CardKind): string {
-  return kind === "ot" ? "OCG/TCG" : "RD";
-}
-
-function kindFilterLabel(kind: KindFilter): string {
-  return kind === "all" ? "全部环境" : kindLabel(kind);
+  return kind === "ot" ? "OCG/TCG" : "Rush Duel";
 }
 
 function cardsForKind(kind: KindFilter): IndexedCard[] {
@@ -684,10 +692,6 @@ function randomIndex(length: number): number {
   } while (value >= limit);
 
   return value % length;
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function getElement<T extends HTMLElement>(id: string): T {
