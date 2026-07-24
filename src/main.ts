@@ -1,6 +1,6 @@
 import "./styles.css";
 import { indexCards, searchCards } from "./search";
-import { downloadBytes, renderCardPng, renderCardSvg } from "./typstRenderer";
+import { DEFAULT_CARD_RENDER_OPTIONS, downloadBytes, renderCardPng, renderCardSvg } from "./typstRenderer";
 import type { AssetManifest, CardKind, CardRenderOptions, IndexedCard, RawCard } from "./types";
 
 type KindFilter = CardKind | "all";
@@ -9,6 +9,8 @@ type UrlState = {
   kind: KindFilter;
   query: string;
   cardId: number | null;
+  compressDescription: boolean;
+  drawPassword: boolean;
 };
 
 type SourceLink = {
@@ -121,6 +123,7 @@ downloadButton.addEventListener("click", () => {
 
 for (const input of renderOptionInputs) {
   input.addEventListener("change", () => {
+    updateUrlState();
     if (selected && manifest) {
       void renderSelectedCard("渲染选项已更新。");
     }
@@ -387,6 +390,8 @@ function setStatus(message: string, error = false): void {
 }
 
 async function applyUrlState(state: UrlState): Promise<void> {
+  compressDescriptionInput.checked = state.compressDescription;
+  drawPasswordInput.checked = state.drawPassword;
   setKindFilter(state.kind);
   searchInput.value = state.query;
 
@@ -530,6 +535,11 @@ function readUrlState(): UrlState {
     kind: parseKindFilter(params.get("kind")),
     query: params.get("q") ?? "",
     cardId: parseCardId(params.get("id")),
+    compressDescription: parseBooleanUrlParam(
+      params.get("compress"),
+      DEFAULT_CARD_RENDER_OPTIONS.compressDescription,
+    ),
+    drawPassword: parseBooleanUrlParam(params.get("password"), DEFAULT_CARD_RENDER_OPTIONS.drawPassword),
   };
 }
 
@@ -555,6 +565,19 @@ function updateUrlState(): void {
     url.searchParams.delete("id");
   }
 
+  setBooleanUrlParam(
+    url.searchParams,
+    "compress",
+    compressDescriptionInput.checked,
+    DEFAULT_CARD_RENDER_OPTIONS.compressDescription,
+  );
+  setBooleanUrlParam(
+    url.searchParams,
+    "password",
+    drawPasswordInput.checked,
+    DEFAULT_CARD_RENDER_OPTIONS.drawPassword,
+  );
+
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (nextUrl !== currentUrl) {
@@ -576,6 +599,29 @@ function parseCardId(value: string | null): number | null {
 
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseBooleanUrlParam(value: string | null, defaultValue: boolean): boolean {
+  if (value === "0" || value === "false") {
+    return false;
+  }
+  if (value === "1" || value === "true") {
+    return true;
+  }
+  return defaultValue;
+}
+
+function setBooleanUrlParam(
+  params: URLSearchParams,
+  name: string,
+  value: boolean,
+  defaultValue: boolean,
+): void {
+  if (value === defaultValue) {
+    params.delete(name);
+  } else {
+    params.set(name, value ? "1" : "0");
+  }
 }
 
 function setKindFilter(kind: KindFilter): void {

@@ -5,7 +5,7 @@ import type { AssetManifest, CardKind, CardRenderOptions, RawCard, RenderFormat 
 
 const MAIN_FILE_PATH = "/runtime/main.typ";
 const SELECTED_CARD_PATH = "/runtime/selected-card.json";
-const DEFAULT_CARD_RENDER_OPTIONS: Readonly<CardRenderOptions> = {
+export const DEFAULT_CARD_RENDER_OPTIONS: Readonly<CardRenderOptions> = {
   compressDescription: true,
   drawPassword: true,
 };
