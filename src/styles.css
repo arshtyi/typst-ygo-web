@@ -282,12 +282,87 @@ input:disabled {
 }
 
 .selection {
+  flex: 1 1 200px;
   min-width: 0;
   overflow: hidden;
   color: #36332c;
   font-weight: 700;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.preview-controls {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 16px;
+}
+
+.render-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.render-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4f493e;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.render-option input {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex: 0 0 auto;
+  appearance: none;
+  border-radius: 999px;
+  margin: 0;
+  background: #c9c5b9;
+  box-shadow: inset 0 0 0 1px #aaa496;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.render-option input::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(36 35 31 / 30%);
+  content: "";
+  transition: transform 140ms ease;
+}
+
+.render-option input:checked {
+  background: #0f766e;
+  box-shadow: inset 0 0 0 1px #0b655e;
+}
+
+.render-option input:checked::before {
+  transform: translateX(16px);
+}
+
+.render-option input:focus-visible {
+  outline: 3px solid rgb(15 118 110 / 22%);
+  outline-offset: 2px;
+}
+
+.render-option:has(input:disabled) {
+  cursor: not-allowed;
 }
 
 .actions {
@@ -377,6 +452,19 @@ input:disabled {
   .preview-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .selection {
+    flex: 0 1 auto;
+  }
+
+  .preview-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .render-options {
+    justify-content: space-between;
   }
 
   .actions {

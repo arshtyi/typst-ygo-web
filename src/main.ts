@@ -1,7 +1,7 @@
 import "./styles.css";
 import { indexCards, searchCards } from "./search";
 import { downloadBytes, renderCardPng, renderCardSvg } from "./typstRenderer";
-import type { AssetManifest, CardKind, IndexedCard, RawCard } from "./types";
+import type { AssetManifest, CardKind, CardRenderOptions, IndexedCard, RawCard } from "./types";
 
 type KindFilter = CardKind | "all";
 
@@ -50,9 +50,21 @@ app.innerHTML = `
     <section class="preview-pane" aria-label="card preview">
       <div class="preview-toolbar">
         <div id="selection" class="selection">未选择卡片</div>
-        <div class="actions">
-          <button id="randomButton" type="button" disabled>随机一卡</button>
-          <button id="downloadButton" type="button" disabled>下载图片</button>
+        <div class="preview-controls">
+          <div class="render-options" role="group" aria-label="渲染选项">
+            <label class="render-option">
+              <input id="compressDescriptionInput" type="checkbox" role="switch" checked />
+              <span>压缩文本</span>
+            </label>
+            <label class="render-option">
+              <input id="drawPasswordInput" type="checkbox" role="switch" checked />
+              <span>显示卡密</span>
+            </label>
+          </div>
+          <div class="actions">
+            <button id="randomButton" type="button" disabled>随机一卡</button>
+            <button id="downloadButton" type="button" disabled>下载图片</button>
+          </div>
         </div>
       </div>
       <div id="preview" class="preview">
@@ -70,8 +82,11 @@ const resultsNode = getElement<HTMLDivElement>("results");
 const selectionNode = getElement<HTMLDivElement>("selection");
 const downloadButton = getElement<HTMLButtonElement>("downloadButton");
 const randomButton = getElement<HTMLButtonElement>("randomButton");
+const compressDescriptionInput = getElement<HTMLInputElement>("compressDescriptionInput");
+const drawPasswordInput = getElement<HTMLInputElement>("drawPasswordInput");
 const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
+const renderOptionInputs = [compressDescriptionInput, drawPasswordInput];
 
 let manifest: AssetManifest | null = null;
 let allCards: IndexedCard[] = [];
@@ -103,6 +118,14 @@ randomButton.addEventListener("click", () => {
 downloadButton.addEventListener("click", () => {
   void downloadSelectedCard();
 });
+
+for (const input of renderOptionInputs) {
+  input.addEventListener("change", () => {
+    if (selected && manifest) {
+      void renderSelectedCard("渲染选项已更新。");
+    }
+  });
+}
 
 async function initialize(): Promise<void> {
   try {
@@ -232,7 +255,7 @@ async function renderSelectedCard(successMessage = "渲染完成。"): Promise<v
 
   setBusy(true, "正在渲染...");
   try {
-    const svg = await renderCardSvg(manifest, selected.kind, selected.card);
+    const svg = await renderCardSvg(manifest, selected.kind, selected.card, currentRenderOptions());
     showSvgPreview(svg, selected);
     downloadButton.disabled = false;
     setStatus(successMessage);
@@ -251,7 +274,7 @@ async function downloadSelectedCard(): Promise<void> {
 
   setBusy(true, "正在生成图片...");
   try {
-    const png = await renderCardPng(manifest, selected.kind, selected.card);
+    const png = await renderCardPng(manifest, selected.kind, selected.card, currentRenderOptions());
     downloadBytes(png, `${selected.kind}-${selected.card.id}.png`, "image/png");
     setStatus("图片已生成。");
   } catch (error) {
@@ -325,12 +348,22 @@ function parseSvgLength(value: string | null): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function currentRenderOptions(): CardRenderOptions {
+  return {
+    compressDescription: compressDescriptionInput.checked,
+    drawPassword: drawPasswordInput.checked,
+  };
+}
+
 function setBusy(busy: boolean, message?: string): void {
   downloadButton.disabled = busy || !selected;
   randomButton.disabled = busy || !hasRandomCards();
   searchInput.disabled = busy;
   for (const button of kindButtons) {
     button.disabled = busy;
+  }
+  for (const input of renderOptionInputs) {
+    input.disabled = busy;
   }
   for (const button of resultsNode.querySelectorAll<HTMLButtonElement>(".result-item")) {
     button.disabled = busy;

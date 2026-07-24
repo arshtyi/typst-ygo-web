@@ -27,4 +27,9 @@ export type AssetManifest = {
   sources?: Record<string, unknown>;
 };
 
+export type CardRenderOptions = {
+  compressDescription: boolean;
+  drawPassword: boolean;
+};
+
 export type RenderFormat = "svg" | "png" | "pdf";

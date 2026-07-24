@@ -1,10 +1,14 @@
 import { $typst, TypstSnippet } from "@myriaddreamin/typst.ts/contrib/snippet";
 import compilerWasmUrl from "@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm?url";
 import rendererWasmUrl from "@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm?url";
-import type { AssetManifest, CardKind, RawCard, RenderFormat } from "./types";
+import type { AssetManifest, CardKind, CardRenderOptions, RawCard, RenderFormat } from "./types";
 
 const MAIN_FILE_PATH = "/runtime/main.typ";
 const SELECTED_CARD_PATH = "/runtime/selected-card.json";
+const DEFAULT_CARD_RENDER_OPTIONS: Readonly<CardRenderOptions> = {
+  compressDescription: true,
+  drawPassword: true,
+};
 const MAX_MAPPED_IMAGES = 6;
 const PNG_EXPORT_PPI = 600;
 const PNG_EXPORT_PIXEL_PER_POINT = PNG_EXPORT_PPI / 72;
@@ -18,8 +22,13 @@ let sourceFilesLoaded = false;
 const loadedStaticKinds = new Set<CardKind>();
 const mappedImagePaths: string[] = [];
 
-export async function renderCardSvg(manifest: AssetManifest, kind: CardKind, card: RawCard): Promise<string> {
-  await prepareDocument(manifest, kind, card);
+export async function renderCardSvg(
+  manifest: AssetManifest,
+  kind: CardKind,
+  card: RawCard,
+  options: Readonly<CardRenderOptions> = DEFAULT_CARD_RENDER_OPTIONS,
+): Promise<string> {
+  await prepareDocument(manifest, kind, card, options);
   return await $typst.svg({
     mainFilePath: MAIN_FILE_PATH,
     root: "/",
@@ -32,8 +41,13 @@ export async function renderCardSvg(manifest: AssetManifest, kind: CardKind, car
   });
 }
 
-export async function renderCardPdf(manifest: AssetManifest, kind: CardKind, card: RawCard): Promise<Uint8Array> {
-  await prepareDocument(manifest, kind, card);
+export async function renderCardPdf(
+  manifest: AssetManifest,
+  kind: CardKind,
+  card: RawCard,
+  options: Readonly<CardRenderOptions> = DEFAULT_CARD_RENDER_OPTIONS,
+): Promise<Uint8Array> {
+  await prepareDocument(manifest, kind, card, options);
   const pdf = await $typst.pdf({ mainFilePath: MAIN_FILE_PATH, root: "/" });
   if (!pdf) {
     throw new Error("Typst did not return PDF data.");
@@ -41,8 +55,13 @@ export async function renderCardPdf(manifest: AssetManifest, kind: CardKind, car
   return pdf;
 }
 
-export async function renderCardPng(manifest: AssetManifest, kind: CardKind, card: RawCard): Promise<Uint8Array> {
-  await prepareDocument(manifest, kind, card);
+export async function renderCardPng(
+  manifest: AssetManifest,
+  kind: CardKind,
+  card: RawCard,
+  options: Readonly<CardRenderOptions> = DEFAULT_CARD_RENDER_OPTIONS,
+): Promise<Uint8Array> {
+  await prepareDocument(manifest, kind, card, options);
 
   const container = document.createElement("div");
   container.setAttribute("aria-hidden", "true");
@@ -76,7 +95,12 @@ export async function renderCardPng(manifest: AssetManifest, kind: CardKind, car
   }
 }
 
-async function prepareDocument(manifest: AssetManifest, kind: CardKind, card: RawCard): Promise<void> {
+async function prepareDocument(
+  manifest: AssetManifest,
+  kind: CardKind,
+  card: RawCard,
+  options: Readonly<CardRenderOptions>,
+): Promise<void> {
   configureRuntime(manifest);
   await loadTypstSources(manifest);
   await loadStaticAssets(manifest, kind);
@@ -86,7 +110,7 @@ async function prepareDocument(manifest: AssetManifest, kind: CardKind, card: Ra
   const mainContent = [
     `#import "/lib/mod.typ": ${rendererName}`,
     `#let card = json("${SELECTED_CARD_PATH}")`,
-    `#${rendererName}(card)`,
+    `#${rendererName}(card, compress_description: ${options.compressDescription}, draw_password: ${options.drawPassword})`,
     "",
   ].join("\n");
 
