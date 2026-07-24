@@ -43,11 +43,12 @@ app.innerHTML = `
           autocomplete="off"
           placeholder="Search by ID, name, or card text"
           aria-label="Search cards"
+          disabled
         />
         <div class="segmented" aria-label="Card format">
-          <button class="active" type="button" data-kind="all">All</button>
-          <button type="button" data-kind="ot">OCG/TCG</button>
-          <button type="button" data-kind="rd">RD</button>
+          <button class="active" type="button" data-kind="all" disabled>All</button>
+          <button type="button" data-kind="ot" disabled>OCG/TCG</button>
+          <button type="button" data-kind="rd" disabled>RD</button>
         </div>
       </div>
 
@@ -61,11 +62,11 @@ app.innerHTML = `
         <div class="preview-controls">
           <div class="render-options" role="group" aria-label="Card rendering options">
             <label class="render-option">
-              <input id="compressDescriptionInput" type="checkbox" role="switch" checked />
+              <input id="compressDescriptionInput" type="checkbox" role="switch" checked disabled />
               <span>Compact card text</span>
             </label>
             <label class="render-option">
-              <input id="drawPasswordInput" type="checkbox" role="switch" checked />
+              <input id="drawPasswordInput" type="checkbox" role="switch" checked disabled />
               <span>Show passcode</span>
             </label>
           </div>
@@ -101,6 +102,7 @@ let allCards: IndexedCard[] = [];
 let selected: IndexedCard | null = null;
 let kindFilter: KindFilter = "all";
 let searchTimer: number | null = null;
+let cardLibraryAvailable = false;
 
 void initialize();
 
@@ -145,14 +147,18 @@ async function initialize(): Promise<void> {
     ]);
 
     allCards = [...indexCards("ot", otCards), ...indexCards("rd", rdCards)];
+    cardLibraryAvailable = true;
     renderResourceMeta(otCards.length, rdCards.length);
-    randomButton.disabled = !hasRandomCards();
+    setBusy(false);
     await applyUrlState(readUrlState());
   } catch (error) {
     console.error("Failed to load the card library.", error);
+    cardLibraryAvailable = false;
+    setBusy(false);
     setStatus("We couldn't load the card library. Refresh the page to try again.", true);
     resourceSummary.textContent = "Card library unavailable";
     resourceMeta.textContent = "Try refreshing the page. The data source may be temporarily unavailable.";
+    setEmptyPreview("Card features are unavailable because the card library couldn't be loaded.");
   }
 }
 
@@ -368,17 +374,18 @@ function currentRenderOptions(): CardRenderOptions {
 }
 
 function setBusy(busy: boolean, message?: string): void {
-  downloadButton.disabled = busy || !selected;
-  randomButton.disabled = busy || !hasRandomCards();
-  searchInput.disabled = busy;
+  const disabled = busy || !cardLibraryAvailable;
+  downloadButton.disabled = disabled || !selected;
+  randomButton.disabled = disabled || !hasRandomCards();
+  searchInput.disabled = disabled;
   for (const button of kindButtons) {
-    button.disabled = busy;
+    button.disabled = disabled;
   }
   for (const input of renderOptionInputs) {
-    input.disabled = busy;
+    input.disabled = disabled;
   }
   for (const button of resultsNode.querySelectorAll<HTMLButtonElement>(".result-item")) {
-    button.disabled = busy;
+    button.disabled = disabled;
   }
   if (message) {
     setStatus(message);
