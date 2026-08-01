@@ -142,8 +142,8 @@ async function initialize(): Promise<void> {
   try {
     manifest = await fetchJson<AssetManifest>("asset-manifest.json");
     const [otCards, rdCards] = await Promise.all([
-      fetchJson<RawCard[]>("assets/ot/card/ot.json"),
-      fetchJson<RawCard[]>("assets/rd/card/rd.json"),
+      fetchJson<RawCard[]>("cards/ot.json"),
+      fetchJson<RawCard[]>("cards/rd.json"),
     ]);
 
     allCards = [...indexCards("ot", otCards), ...indexCards("rd", rdCards)];

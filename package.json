@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "dev": "npm run prepare:resources && vite --host 127.0.0.1",
+    "build": "npm run prepare:resources && npm run build:app",
+    "build:app": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "sync:resources": "node scripts/sync-resources.mjs"
+    "prepare:resources": "node scripts/prepare-resources.mjs"
   },
   "dependencies": {
     "@myriaddreamin/typst.ts": "^0.7.0",
