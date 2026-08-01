@@ -37,11 +37,11 @@ if (!app) {
 
 app.innerHTML = `
   <main class="app-shell">
-    <section class="search-pane" aria-label="Card search">
+    <section class="search-pane" aria-label="card search">
       <header class="topbar">
         <h1>typst-ygo web</h1>
         <div id="resourceStatus" class="resource-status loading" aria-live="polite">
-          <span id="resourceSummary">Loading cards...</span>
+          <span id="resourceSummary">loading cards...</span>
         </div>
       </header>
 
@@ -50,45 +50,45 @@ app.innerHTML = `
           id="searchInput"
           type="search"
           autocomplete="off"
-          placeholder="Search by ID, name, or card text"
-          aria-label="Search cards"
+          placeholder="search by id, name, or card text"
+          aria-label="search cards"
           disabled
         />
-        <div class="segmented" aria-label="Card format">
-          <button class="active" type="button" data-kind="all" disabled>All</button>
-          <button type="button" data-kind="ot" disabled>OCG/TCG</button>
-          <button type="button" data-kind="rd" disabled>RD</button>
+        <div class="segmented" aria-label="card format">
+          <button class="active" type="button" data-kind="all" disabled>all</button>
+          <button type="button" data-kind="ot" disabled>ocg/tcg</button>
+          <button type="button" data-kind="rd" disabled>rd</button>
         </div>
       </div>
 
-      <div id="status" class="status" role="status">Loading the card library...</div>
-      <div id="results" class="results" role="listbox" aria-label="Search results"></div>
+      <div id="status" class="status" role="status">loading the card library...</div>
+      <div id="results" class="results" role="listbox" aria-label="search results"></div>
     </section>
 
-    <section class="preview-pane" aria-label="Card preview">
+    <section class="preview-pane" aria-label="card preview">
       <div class="preview-toolbar">
-        <div id="selection" class="selection">No card selected</div>
+        <div id="selection" class="selection">no card selected</div>
         <div class="preview-controls">
-          <div class="render-options" role="group" aria-label="Card rendering options">
+          <div class="render-options" role="group" aria-label="card rendering options">
             <label class="render-option">
               <input id="compressDescriptionInput" type="checkbox" role="switch" checked disabled />
-              <span>Compact card text</span>
+              <span>compact card text</span>
             </label>
             <label class="render-option">
               <input id="drawPasswordInput" type="checkbox" role="switch" checked disabled />
-              <span>Show passcode</span>
+              <span>show passcode</span>
             </label>
           </div>
           <div class="actions">
-            <button id="randomButton" type="button" disabled>Random card</button>
-            <button id="copyImageButton" type="button" disabled>Copy image</button>
-            <button id="copyCardButton" type="button" disabled>Copy card + info</button>
-            <button id="downloadButton" type="button" disabled>Download PNG</button>
+            <button id="randomButton" type="button" disabled>random card</button>
+            <button id="copyImageButton" type="button" disabled>copy image</button>
+            <button id="copyCardButton" type="button" disabled>copy card + info</button>
+            <button id="downloadButton" type="button" disabled>download png</button>
           </div>
         </div>
       </div>
       <div id="preview" class="preview">
-        <div class="preview-empty">Search for a card to get started.</div>
+        <div class="preview-empty">search for a card to get started.</div>
       </div>
     </section>
   </main>
@@ -113,10 +113,10 @@ const imageClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE);
 const cardClipboardAvailable = supportsClipboardTypes(HTML_MIME_TYPE, TEXT_MIME_TYPE);
 
 if (!imageClipboardAvailable) {
-  copyImageButton.title = "Copying images requires a supported browser over HTTPS.";
+  copyImageButton.title = "copying images requires a supported browser over https.";
 }
 if (!cardClipboardAvailable) {
-  copyCardButton.title = "Copying images with card information requires a supported browser over HTTPS.";
+  copyCardButton.title = "copying images with card information requires a supported browser over https.";
 }
 
 let manifest: AssetManifest | null = null;
@@ -163,7 +163,7 @@ for (const input of renderOptionInputs) {
   input.addEventListener("change", () => {
     updateUrlState();
     if (selected && manifest) {
-      void renderSelectedCard("Preview updated.");
+      void renderSelectedCard("preview updated.");
     }
   });
 }
@@ -185,12 +185,12 @@ async function initialize(): Promise<void> {
     console.error("Failed to load the card library.", error);
     cardLibraryAvailable = false;
     setBusy(false);
-    setStatus("We couldn't load the card library. Refresh the page to try again.", true);
+    setStatus("we couldn't load the card library. refresh the page to try again.", true);
     resourceStatus.classList.remove("loading");
     resourceStatus.classList.add("error");
-    resourceStatus.title = "Refresh the page to try loading the card library again.";
-    resourceSummary.textContent = "Cards unavailable";
-    setEmptyPreview("Card features are unavailable because the card library couldn't be loaded.");
+    resourceStatus.title = "refresh the page to try loading the card library again.";
+    resourceSummary.textContent = "cards unavailable";
+    setEmptyPreview("card features are unavailable because the card library couldn't be loaded.");
   }
 }
 
@@ -198,7 +198,7 @@ async function selectRandomCard(): Promise<void> {
   const candidates = cardsForKind(kindFilter);
   if (candidates.length === 0) {
     const format = kindFilter === "all" ? "" : `${kindLabel(kindFilter)} `;
-    setStatus(`No ${format}cards are available right now.`, true);
+    setStatus(`no ${format}cards are available right now.`, true);
     return;
   }
 
@@ -210,7 +210,7 @@ async function selectRandomCard(): Promise<void> {
   resultsNode.replaceChildren(button);
   selectCard(item, button);
 
-  await renderSelectedCard(`Here's a random card: ${item.card.name}`);
+  await renderSelectedCard(`here's a random card: ${item.card.name}`);
 }
 
 function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): void {
@@ -220,7 +220,7 @@ function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): vo
   const results = searchCards(allCards, searchInput.value, kindFilter);
   if (results.length === 0) {
     const query = searchInput.value.trim();
-    setStatus(query ? `No cards match "${query}".` : "Search by card ID, name, or card text.");
+    setStatus(query ? `no cards match "${query}".` : "search by card id, name, or card text.");
     if (syncUrl) {
       updateUrlState();
     }
@@ -228,7 +228,7 @@ function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): vo
   }
 
   const resultLabel = results.length === 1 ? "card" : "cards";
-  setStatus(`Showing ${results.length.toLocaleString("en-US")} matching ${resultLabel}.`);
+  setStatus(`showing ${results.length.toLocaleString("en-US")} matching ${resultLabel}.`);
   const fragment = document.createDocumentFragment();
   for (const item of results) {
     fragment.appendChild(createResultButton(item));
@@ -280,7 +280,7 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
   copyImageButton.disabled = !imageClipboardAvailable;
   copyCardButton.disabled = !cardClipboardAvailable;
   downloadButton.disabled = false;
-  setEmptyPreview("Double-click this card to see the preview.");
+  setEmptyPreview("double-click this card to see the preview.");
   if (manifest) {
     void preloadCardResources(manifest, item.kind, item.card).catch((error: unknown) => {
       console.warn(`Failed to preload card ${item.card.id}.`, error);
@@ -293,28 +293,28 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
 
 function clearSelection(): void {
   selected = null;
-  selectionNode.textContent = "No card selected";
+  selectionNode.textContent = "no card selected";
   selectionNode.removeAttribute("title");
   copyImageButton.disabled = true;
   copyCardButton.disabled = true;
   downloadButton.disabled = true;
-  setEmptyPreview("Search for a card to get started.");
+  setEmptyPreview("search for a card to get started.");
 }
 
-async function renderSelectedCard(successMessage = "Preview ready."): Promise<void> {
+async function renderSelectedCard(successMessage = "preview ready."): Promise<void> {
   if (!selected || !manifest) {
     return;
   }
 
-  setBusy(true, "Rendering your preview...");
+  setBusy(true, "rendering your preview...");
   try {
     const svg = await renderCardSvg(manifest, selected.kind, selected.card, currentRenderOptions());
     showSvgPreview(svg, selected);
     setStatus(successMessage);
   } catch (error) {
     console.error(`Failed to render card ${selected.card.id}.`, error);
-    setStatus("We couldn't render this card. Please try again.", true);
-    setEmptyPreview("The preview isn't available right now.");
+    setStatus("we couldn't render this card. please try again.", true);
+    setEmptyPreview("the preview isn't available right now.");
   } finally {
     setBusy(false);
   }
@@ -325,14 +325,14 @@ async function downloadSelectedCard(): Promise<void> {
     return;
   }
 
-  setBusy(true, "Preparing your PNG...");
+  setBusy(true, "preparing your png...");
   try {
     const png = await renderCardPng(manifest, selected.kind, selected.card, currentRenderOptions());
     downloadBytes(png, `${selected.kind}-${selected.card.id}.png`, PNG_MIME_TYPE);
-    setStatus("Your PNG is ready.");
+    setStatus("your png is ready.");
   } catch (error) {
     console.error(`Failed to create a PNG for card ${selected.card.id}.`, error);
-    setStatus("We couldn't create the PNG. Please try again.", true);
+    setStatus("we couldn't create the png. please try again.", true);
   } finally {
     setBusy(false);
   }
@@ -346,7 +346,7 @@ async function copySelectedCard(mode: CopyMode): Promise<void> {
   }
 
   const item = selected;
-  setBusy(true, includeInformation ? "Copying the card and its information..." : "Copying the card image...");
+  setBusy(true, includeInformation ? "copying the card and its information..." : "copying the card image...");
   try {
     const png = renderCardPng(manifest, item.kind, item.card, currentRenderOptions()).then((bytes) =>
       bytesToBlob(bytes, PNG_MIME_TYPE),
@@ -359,13 +359,13 @@ async function copySelectedCard(mode: CopyMode): Promise<void> {
         }
       : { [PNG_MIME_TYPE]: png };
     await writeClipboardRepresentations(representations);
-    setStatus(includeInformation ? "Card image and information copied to your clipboard." : "Card image copied.");
+    setStatus(includeInformation ? "card image and information copied to your clipboard." : "card image copied.");
   } catch (error) {
     console.error(`Failed to copy card ${item.card.id}.`, error);
     setStatus(
       includeInformation
-        ? "We couldn't copy the card and its information. Check your clipboard permission and try again."
-        : "We couldn't copy the card image. Check your clipboard permission and try again.",
+        ? "we couldn't copy the card and its information. check your clipboard permission and try again."
+        : "we couldn't copy the card image. check your clipboard permission and try again.",
       true,
     );
   } finally {
@@ -489,7 +489,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
   } else {
     resultsNode.replaceChildren();
     clearSelection();
-    setStatus("Search by card ID, name, or card text.");
+    setStatus("search by card id, name, or card text.");
   }
 
   if (state.cardId === null) {
@@ -499,7 +499,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
 
   const item = findCardById(state.cardId, state.kind);
   if (!item) {
-    setStatus(`Card ${state.cardId} from this shared link isn't available.`, true);
+    setStatus(`card ${state.cardId} from this shared link isn't available.`, true);
     updateUrlState();
     return;
   }
@@ -516,7 +516,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
 
   selectCard(item, button, { syncUrl: false });
   updateUrlState();
-  await renderSelectedCard(`You're viewing ${item.card.name} from a shared link.`);
+  await renderSelectedCard(`you're viewing ${item.card.name} from a shared link.`);
 }
 
 function renderResourceStatus(otCount: number, rdCount: number): void {
@@ -525,16 +525,16 @@ function renderResourceStatus(otCount: number, rdCount: number): void {
 
   resourceStatus.classList.remove("loading", "error");
   resourceStatus.title = [
-    `OCG/TCG: ${otCount.toLocaleString("en-US")}`,
-    `Rush Duel: ${rdCount.toLocaleString("en-US")}`,
-    `Updated: ${generatedAt}`,
+    `ocg/tcg: ${otCount.toLocaleString("en-US")}`,
+    `rush duel: ${rdCount.toLocaleString("en-US")}`,
+    `updated: ${generatedAt}`,
   ].join(" · ");
   resourceSummary.textContent = `${total.toLocaleString("en-US")} cards`;
 }
 
 function formatGeneratedAt(value: string | undefined): string {
   if (!value) {
-    return "Not available";
+    return "not available";
   }
 
   const date = new Date(value);
@@ -545,7 +545,7 @@ function formatGeneratedAt(value: string | undefined): string {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(date);
+  }).format(date).toLocaleLowerCase("en-US");
 }
 
 function readUrlState(): UrlState {
@@ -673,7 +673,7 @@ function clearSearchTimer(): void {
 }
 
 function kindLabel(kind: CardKind): string {
-  return kind === "ot" ? "OCG/TCG" : "Rush Duel";
+  return kind === "ot" ? "ocg/tcg" : "rush duel";
 }
 
 function cardsForKind(kind: KindFilter): IndexedCard[] {

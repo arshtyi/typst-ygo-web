@@ -30,7 +30,7 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   description: "效果文本",
   id: "卡片编号",
   image: "图片编号",
-  legend: "LEGEND",
+  legend: "legend",
   level: "等级",
   lf: "禁限状态",
   linkMarker: "连接标记",
@@ -51,7 +51,7 @@ const MAXIMUM_PART_NAMES = ["左", "中央", "右"] as const;
 
 export function formatCardInformation(kind: CardKind, card: RawCard): string {
   const fields = orderedFields(card);
-  const details = [`制式：${kind === "ot" ? "OCG/TCG" : "Rush Duel"}`];
+  const details = [`制式：${kind === "ot" ? "ocg/tcg" : "rush duel"}`];
   const sections: string[] = [];
 
   for (const [key, value] of fields) {
@@ -122,8 +122,8 @@ function formatLimit(kind: CardKind, value: JsonValue): string {
   if (kind === "ot" && Array.isArray(value)) {
     const [ocg, tcg, ...rest] = value;
     const parts = [
-      `OCG：${formatMappedNumber(ocg, LIMIT_NAMES)}`,
-      `TCG：${formatMappedNumber(tcg, LIMIT_NAMES)}`,
+      `ocg：${formatMappedNumber(ocg, LIMIT_NAMES)}`,
+      `tcg：${formatMappedNumber(tcg, LIMIT_NAMES)}`,
     ];
     parts.push(...rest.map(formatValue));
     return parts.join("；");
@@ -167,5 +167,5 @@ function humanizeKey(key: string): string {
     .replace(/([a-z\d])([A-Z])/gu, "$1 $2")
     .replace(/[_-]+/gu, " ")
     .trim();
-  return words ? words[0].toUpperCase() + words.slice(1) : key;
+  return words.toLocaleLowerCase("en-US");
 }
