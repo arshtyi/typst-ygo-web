@@ -1,8 +1,10 @@
 [submodule "vendor/typst-ygo"]
 	path = vendor/typst-ygo
 	url = https://github.com/arshtyi/typst-ygo.git
+	branch = main
 	shallow = true
 [submodule "vendor/ygo-assets"]
 	path = vendor/ygo-assets
 	url = https://github.com/arshtyi/ygo-assets.git
+	branch = main
 	shallow = true
