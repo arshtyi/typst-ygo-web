@@ -5,6 +5,7 @@ const base = process.env.VITE_BASE_PATH ?? (process.env.GITHUB_ACTIONS && repoNa
 
 export default defineConfig({
   base,
+  publicDir: "public/generated",
   build: {
     sourcemap: true,
   },

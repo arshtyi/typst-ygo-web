@@ -1,20 +1,21 @@
 import {
   mkdir,
   readdir,
-  readlink,
   rename,
+  rm,
   stat,
   symlink,
-  unlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = join(projectRoot, "public");
+const generatedRoot = join(publicRoot, "generated");
 const typstYgoRoot = join(projectRoot, "vendor", "typst-ygo");
 const ygoAssetsRoot = join(projectRoot, "vendor", "ygo-assets");
+const typstLibRoot = join(typstYgoRoot, "lib");
 const assetsRoot = join(ygoAssetsRoot, "assets");
 
 const sources = {
@@ -28,18 +29,24 @@ const sources = {
 
 await assertSubmodule(typstYgoRoot, "lib/mod.typ");
 await assertSubmodule(ygoAssetsRoot, "assets/ot/frame/000.png");
-await linkDirectory(join(publicRoot, "typst-ygo", "lib"), join(typstYgoRoot, "lib"));
-await linkDirectory(join(publicRoot, "assets"), assetsRoot);
+const [typstSourceFiles, staticAssetSourceFiles] = await Promise.all([
+  listFiles(typstLibRoot).then((files) => files.filter((path) => path.endsWith(".typ"))),
+  listFiles(assetsRoot).then((files) => files.filter(isStaticAsset)),
+]);
+await Promise.all([
+  stageFiles(join(generatedRoot, "typst-ygo", "lib"), typstLibRoot, typstSourceFiles),
+  stageFiles(join(generatedRoot, "assets"), assetsRoot, staticAssetSourceFiles),
+]);
 
 console.log("Downloading card data...");
 await Promise.all(
   Object.entries(sources.cards).map(([kind, url]) =>
-    downloadCards(url, join(publicRoot, "cards", `${kind}.json`)),
+    downloadCards(url, join(generatedRoot, "cards", `${kind}.json`)),
   ),
 );
 
 console.log("Writing resource manifest...");
-await writeManifest();
+await writeManifest(typstSourceFiles, staticAssetSourceFiles);
 console.log("Resources ready.");
 
 async function assertSubmodule(root, requiredFile) {
@@ -49,22 +56,13 @@ async function assertSubmodule(root, requiredFile) {
   }
 }
 
-async function linkDirectory(linkPath, targetPath) {
-  const expectedTarget = relative(dirname(linkPath), targetPath);
-  const currentTarget = await readlink(linkPath).catch(() => null);
-  if (currentTarget !== null && resolve(dirname(linkPath), currentTarget) === targetPath) {
-    return;
+async function stageFiles(outputRoot, sourceRoot, sourceFiles) {
+  await rm(outputRoot, { recursive: true, force: true });
+  for (const sourcePath of sourceFiles) {
+    const outputPath = join(outputRoot, relative(sourceRoot, sourcePath));
+    await mkdir(dirname(outputPath), { recursive: true });
+    await symlink(relative(dirname(outputPath), sourcePath), outputPath, "file");
   }
-
-  if (await stat(linkPath).catch(() => null)) {
-    throw new Error(`Generated resource path must be a symlink: ${relative(projectRoot, linkPath)}`);
-  }
-
-  await mkdir(dirname(linkPath), { recursive: true });
-  if (currentTarget !== null) {
-    await unlink(linkPath);
-  }
-  await symlink(expectedTarget, linkPath, "dir");
 }
 
 async function downloadCards(url, outputPath) {
@@ -119,25 +117,19 @@ function validateCards(data, sourceUrl) {
   }
 }
 
-async function writeManifest() {
-  const typstLibRoot = join(typstYgoRoot, "lib");
-  const typstLibFiles = (await listFiles(typstLibRoot))
-    .filter((path) => path.endsWith(".typ"))
-    .map((path) =>
-      toPublicPath(join(publicRoot, "typst-ygo", "lib", relative(typstLibRoot, path))),
-    );
-  const staticAssetFiles = (await listFiles(assetsRoot))
-    .filter(isStaticAsset)
-    .map((path) => toPublicPath(join(publicRoot, "assets", relative(assetsRoot, path))));
-
+async function writeManifest(typstFiles, assetFiles) {
   const manifest = {
     generatedAt: new Date().toISOString(),
     sources,
-    typstLibFiles,
-    staticAssetFiles,
+    typstLibFiles: typstFiles.map((path) =>
+      toPublicPath(join(generatedRoot, "typst-ygo", "lib", relative(typstLibRoot, path))),
+    ),
+    staticAssetFiles: assetFiles.map((path) =>
+      toPublicPath(join(generatedRoot, "assets", relative(assetsRoot, path))),
+    ),
   };
 
-  await writeFile(join(publicRoot, "asset-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeFile(join(generatedRoot, "asset-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
 async function listFiles(root) {
@@ -162,5 +154,5 @@ function isStaticAsset(path) {
 }
 
 function toPublicPath(path) {
-  return relative(publicRoot, path).split(sep).join("/");
+  return relative(generatedRoot, path).split(sep).join("/");
 }
