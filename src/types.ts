@@ -26,10 +26,6 @@ export type AssetManifest = {
     assets: string;
     cards: Record<CardKind, string>;
   };
-  resourceVersions: {
-    typstYgo: { revision: string };
-    assets: { revision: string };
-  };
 };
 
 export type CardRenderOptions = {

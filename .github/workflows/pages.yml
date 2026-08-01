@@ -2,15 +2,6 @@ name: Build and deploy GitHub Pages
 
 on:
   workflow_dispatch:
-    inputs:
-      refresh_resources:
-        description: "Refresh the static asset archive before building"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
   schedule:
     # Beijing time Monday and Friday 00:00. GitHub cron is UTC.
     - cron: "0 16 * * 0,4"
@@ -29,63 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Select static asset refresh mode
-        run: |
-          if [ "${{ github.event.inputs.refresh_resources }}" = "true" ]; then
-            echo "REFRESH_ASSETS=true" >> "$GITHUB_ENV"
-          else
-            echo "REFRESH_ASSETS=false" >> "$GITHUB_ENV"
-          fi
+        uses: actions/checkout@v7
+        with:
+          submodules: true
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
-      - name: Restore generated resources
-        id: restore-resources
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            public/assets
-            public/typst-ygo
-            public/asset-manifest.json
-          key: ygo-resources-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            ygo-resources-
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Sync upstream resources
-        id: sync-resources
-        run: |
-          npm run sync:resources
-          if [ -f .tmp/sync-resources/assets-refreshed ]; then
-            echo "assets-refreshed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Save generated resources
-        if: env.REFRESH_ASSETS == 'true' || steps.restore-resources.outputs.cache-matched-key == '' || steps.sync-resources.outputs.assets-refreshed == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            public/assets
-            public/typst-ygo
-            public/asset-manifest.json
-          key: ygo-resources-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Build
         run: npm run build
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -98,4 +53,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

@@ -1,10 +1,16 @@
-import { execFile } from "node:child_process";
-import { mkdir, readdir, readlink, rename, stat, symlink, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  readlink,
+  rename,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = join(projectRoot, "public");
 const typstYgoRoot = join(projectRoot, "vendor", "typst-ygo");
@@ -127,10 +133,6 @@ async function writeManifest() {
   const manifest = {
     generatedAt: new Date().toISOString(),
     sources,
-    resourceVersions: {
-      typstYgo: { revision: await revisionOf(typstYgoRoot) },
-      assets: { revision: await revisionOf(ygoAssetsRoot) },
-    },
     typstLibFiles,
     staticAssetFiles,
   };
@@ -161,9 +163,4 @@ function isStaticAsset(path) {
 
 function toPublicPath(path) {
   return relative(publicRoot, path).split(sep).join("/");
-}
-
-async function revisionOf(root) {
-  const { stdout } = await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"], { cwd: projectRoot });
-  return stdout.trim();
 }
