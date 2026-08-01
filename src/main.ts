@@ -1,6 +1,11 @@
 import "./styles.css";
 import { formatCardInformation } from "./cardInfo";
-import { supportsClipboardTypes, textBlob, writeClipboardRepresentations } from "./clipboard";
+import {
+  richCardHtmlBlob,
+  supportsClipboardTypes,
+  textBlob,
+  writeClipboardRepresentations,
+} from "./clipboard";
 import { bytesToBlob, downloadBytes } from "./files";
 import { indexCards, searchCards } from "./search";
 import {
@@ -14,6 +19,7 @@ import type { AssetManifest, CardKind, CardRenderOptions, IndexedCard, RawCard }
 type KindFilter = CardKind | "all";
 type CopyMode = "image" | "image-and-information";
 const PNG_MIME_TYPE = "image/png";
+const HTML_MIME_TYPE = "text/html";
 const TEXT_MIME_TYPE = "text/plain";
 
 type UrlState = {
@@ -104,7 +110,7 @@ const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
 const renderOptionInputs = [compressDescriptionInput, drawPasswordInput];
 const imageClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE);
-const cardClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE, TEXT_MIME_TYPE);
+const cardClipboardAvailable = supportsClipboardTypes(HTML_MIME_TYPE, TEXT_MIME_TYPE);
 
 if (!imageClipboardAvailable) {
   copyImageButton.title = "Copying images requires a supported browser over HTTPS.";
@@ -345,10 +351,13 @@ async function copySelectedCard(mode: CopyMode): Promise<void> {
     const png = renderCardPng(manifest, item.kind, item.card, currentRenderOptions()).then((bytes) =>
       bytesToBlob(bytes, PNG_MIME_TYPE),
     );
-    const representations: Record<string, Blob | Promise<Blob>> = { [PNG_MIME_TYPE]: png };
-    if (includeInformation) {
-      representations[TEXT_MIME_TYPE] = textBlob(formatCardInformation(item.kind, item.card));
-    }
+    const information = includeInformation ? formatCardInformation(item.kind, item.card) : "";
+    const representations: Record<string, Blob | Promise<Blob>> = includeInformation
+      ? {
+          [HTML_MIME_TYPE]: richCardHtmlBlob(png, information, item.card.name),
+          [TEXT_MIME_TYPE]: textBlob(information),
+        }
+      : { [PNG_MIME_TYPE]: png };
     await writeClipboardRepresentations(representations);
     setStatus(includeInformation ? "Card image and information copied to your clipboard." : "Card image copied.");
   } catch (error) {
