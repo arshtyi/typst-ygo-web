@@ -1,7 +1,7 @@
 import { $typst, TypstSnippet } from "@myriaddreamin/typst.ts/contrib/snippet";
 import compilerWasmUrl from "@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm?url";
 import rendererWasmUrl from "@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm?url";
-import type { AssetManifest, CardKind, CardRenderOptions, RawCard, RenderFormat } from "./types";
+import type { AssetManifest, CardKind, CardRenderOptions, RawCard } from "./types";
 
 const MAIN_FILE_PATH = "/runtime/main.typ";
 const SELECTED_CARD_PATH = "/runtime/selected-card.json";
@@ -29,7 +29,7 @@ export async function renderCardSvg(
   options: Readonly<CardRenderOptions> = DEFAULT_CARD_RENDER_OPTIONS,
 ): Promise<string> {
   await prepareDocument(manifest, kind, card, options);
-  return await $typst.svg({
+  return $typst.svg({
     mainFilePath: MAIN_FILE_PATH,
     root: "/",
     data_selection: {
@@ -39,20 +39,6 @@ export async function renderCardSvg(
       js: false,
     },
   });
-}
-
-export async function renderCardPdf(
-  manifest: AssetManifest,
-  kind: CardKind,
-  card: RawCard,
-  options: Readonly<CardRenderOptions> = DEFAULT_CARD_RENDER_OPTIONS,
-): Promise<Uint8Array> {
-  await prepareDocument(manifest, kind, card, options);
-  const pdf = await $typst.pdf({ mainFilePath: MAIN_FILE_PATH, root: "/" });
-  if (!pdf) {
-    throw new Error("Typst did not return PDF data.");
-  }
-  return pdf;
 }
 
 export async function renderCardPng(
@@ -229,7 +215,7 @@ async function fetchText(path: string): Promise<string> {
   if (!response.ok) {
     throw new Error(`Resource missing: ${path}`);
   }
-  return await response.text();
+  return response.text();
 }
 
 async function fetchBytes(path: string): Promise<Uint8Array> {
@@ -386,11 +372,4 @@ export function downloadBytes(bytes: Uint8Array, filename: string, type: string)
   anchor.download = filename;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-export function extensionForFormat(format: RenderFormat): string {
-  if (format === "pdf") {
-    return "pdf";
-  }
-  return format === "png" ? "png" : "svg";
 }

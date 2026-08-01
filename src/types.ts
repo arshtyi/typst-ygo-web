@@ -23,7 +23,6 @@ export type AssetManifest = {
   generatedAt: string;
   typstLibFiles: string[];
   staticAssetFiles: string[];
-  cardDataFiles: string[];
   sources?: Record<string, unknown>;
 };
 
@@ -31,5 +30,3 @@ export type CardRenderOptions = {
   compressDescription: boolean;
   drawPassword: boolean;
 };
-
-export type RenderFormat = "svg" | "png" | "pdf";

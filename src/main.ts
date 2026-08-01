@@ -181,9 +181,9 @@ async function selectRandomCard(): Promise<void> {
   await renderSelectedCard(`Here's a random card: ${item.card.name}`);
 }
 
-function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): IndexedCard[] {
+function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): void {
   resultsNode.replaceChildren();
-  clearSelection({ syncUrl: false });
+  clearSelection();
 
   const results = searchCards(allCards, searchInput.value, kindFilter);
   if (results.length === 0) {
@@ -192,7 +192,7 @@ function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): In
     if (syncUrl) {
       updateUrlState();
     }
-    return [];
+    return;
   }
 
   const resultLabel = results.length === 1 ? "card" : "cards";
@@ -205,7 +205,6 @@ function renderSearchResults({ syncUrl = true }: { syncUrl?: boolean } = {}): In
   if (syncUrl) {
     updateUrlState();
   }
-  return results;
 }
 
 function createResultButton(item: IndexedCard): HTMLButtonElement {
@@ -222,11 +221,11 @@ function createResultButton(item: IndexedCard): HTMLButtonElement {
 
   const meta = document.createElement("span");
   meta.className = "result-meta";
-  meta.textContent = `${kindLabel(item.kind)} · ${item.card.id} · ${Array.isArray(item.card.type) ? item.card.type.join("/") : ""}`;
+  meta.textContent = `${kindLabel(item.kind)} · ${item.card.id} · ${item.card.type?.join("/") ?? ""}`;
 
   const description = document.createElement("span");
   description.className = "result-description";
-  description.textContent = item.card.description ?? "";
+  description.textContent = item.card.description;
 
   button.append(title, meta, description);
   button.addEventListener("click", () => selectCard(item, button));
@@ -253,15 +252,12 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
   }
 }
 
-function clearSelection({ syncUrl = true }: { syncUrl?: boolean } = {}): void {
+function clearSelection(): void {
   selected = null;
   selectionNode.textContent = "No card selected";
   selectionNode.removeAttribute("title");
   downloadButton.disabled = true;
   setEmptyPreview("Search for a card to get started.");
-  if (syncUrl) {
-    updateUrlState();
-  }
 }
 
 async function renderSelectedCard(successMessage = "Preview ready."): Promise<void> {
@@ -273,7 +269,6 @@ async function renderSelectedCard(successMessage = "Preview ready."): Promise<vo
   try {
     const svg = await renderCardSvg(manifest, selected.kind, selected.card, currentRenderOptions());
     showSvgPreview(svg, selected);
-    downloadButton.disabled = false;
     setStatus(successMessage);
   } catch (error) {
     console.error(`Failed to render card ${selected.card.id}.`, error);
@@ -415,7 +410,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
     renderSearchResults({ syncUrl: false });
   } else {
     resultsNode.replaceChildren();
-    clearSelection({ syncUrl: false });
+    clearSelection();
     setStatus("Search by card ID, name, or card text.");
   }
 

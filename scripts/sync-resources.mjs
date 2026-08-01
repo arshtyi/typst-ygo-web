@@ -76,24 +76,17 @@ async function downloadFile(url, outputPath) {
 }
 
 async function downloadText(url) {
-  return await (await fetchChecked(url)).text();
+  return (await fetchChecked(url)).text();
 }
 
-async function fetchAssetsRelease() {
+async function fetchAssetsFingerprint() {
   const response = await fetchChecked(ASSETS_URL, { method: "HEAD" });
   const etag = response.headers.get("etag");
   const size = Number(response.headers.get("content-length"));
   if (!etag || !Number.isSafeInteger(size) || size <= 0) {
     throw new Error(`Release metadata did not identify ${basename(ASSETS_URL)}.`);
   }
-
-  return {
-    downloadUrl: ASSETS_URL,
-    etag,
-    fingerprint: `${etag}:${size}`,
-    size,
-    updatedAt: response.headers.get("last-modified"),
-  };
+  return `${etag}:${size}`;
 }
 
 async function readCachedAssetsFingerprint() {
@@ -145,18 +138,7 @@ async function syncTypstYgoLib() {
     throw new Error("No typst-ygo lib files were found in the upstream repository tree.");
   }
 
-  await writeFile(
-    join(typstYgoRoot, "manifest.json"),
-    JSON.stringify(
-      {
-        source: "https://github.com/arshtyi/typst-ygo",
-        syncedAt: new Date().toISOString(),
-        files: libFiles.map((path) => `typst-ygo/${path}`),
-      },
-      null,
-      2,
-    ),
-  );
+  return libFiles.map((path) => `typst-ygo/${path}`);
 }
 
 async function isFile(path) {
@@ -165,15 +147,20 @@ async function isFile(path) {
 
 async function hasUsableStaticAssets() {
   const files = await listFiles(assetsRoot).catch(() => []);
-  return files.some((file) => {
-    const rel = relative(publicRoot, file).split(sep).join("/");
-    return (
-      !basename(rel).startsWith(".") &&
-      !rel.includes("/images/") &&
-      !rel.endsWith("/card/ot.json") &&
-      !rel.endsWith("/card/rd.json")
-    );
-  });
+  return files.some((file) => isStaticAssetPath(toPublicPath(file)));
+}
+
+function toPublicPath(path) {
+  return relative(publicRoot, path).split(sep).join("/");
+}
+
+function isStaticAssetPath(path) {
+  return (
+    !basename(path).startsWith(".") &&
+    !path.includes("/images/") &&
+    !path.endsWith("/card/ot.json") &&
+    !path.endsWith("/card/rd.json")
+  );
 }
 
 async function findAssetsPayloadRoot(root) {
@@ -201,13 +188,13 @@ async function findAssetsPayloadRoot(root) {
   throw new Error("Extracted assets archive did not contain assets/ot and assets/rd.");
 }
 
-async function syncAssetsArchive(assetsRelease) {
+async function syncAssetsArchive() {
   const archivePath = join(tmpRoot, "assets.tar.xz");
   const extractRoot = join(tmpRoot, "assets-extract");
 
   await rm(extractRoot, { recursive: true, force: true });
   await mkdir(extractRoot, { recursive: true });
-  await downloadFile(assetsRelease.downloadUrl, archivePath);
+  await downloadFile(ASSETS_URL, archivePath);
   await execFileAsync("tar", ["-xJf", archivePath, "-C", extractRoot], { cwd: projectRoot });
 
   const payloadRoot = await findAssetsPayloadRoot(extractRoot);
@@ -247,27 +234,8 @@ async function listFiles(root) {
   return files.sort();
 }
 
-async function createAssetManifest(assetsRelease) {
-  const typstManifest = JSON.parse(await readFile(join(typstYgoRoot, "manifest.json"), "utf8"));
-  const assetFiles = await listFiles(assetsRoot);
-  const staticAssetFiles = [];
-  const cardDataFiles = [];
-
-  for (const file of assetFiles) {
-    const rel = relative(publicRoot, file).split(sep).join("/");
-    if (basename(rel).startsWith(".")) {
-      continue;
-    }
-    if (rel.includes("/images/")) {
-      continue;
-    }
-    if (rel.endsWith("/card/ot.json") || rel.endsWith("/card/rd.json")) {
-      cardDataFiles.push(rel);
-    } else {
-      staticAssetFiles.push(rel);
-    }
-  }
-
+async function createAssetManifest(assetsFingerprint, typstLibFiles) {
+  const staticAssetFiles = (await listFiles(assetsRoot)).map(toPublicPath).filter(isStaticAssetPath);
   const manifest = {
     generatedAt: new Date().toISOString(),
     sources: {
@@ -277,15 +245,11 @@ async function createAssetManifest(assetsRelease) {
     },
     resourceVersions: {
       assets: {
-        etag: assetsRelease.etag,
-        fingerprint: assetsRelease.fingerprint,
-        size: assetsRelease.size,
-        updatedAt: assetsRelease.updatedAt,
+        fingerprint: assetsFingerprint,
       },
     },
-    typstLibFiles: typstManifest.files,
+    typstLibFiles,
     staticAssetFiles,
-    cardDataFiles,
   };
 
   await writeFile(join(publicRoot, "asset-manifest.json"), JSON.stringify(manifest, null, 2));
@@ -314,21 +278,21 @@ await rm(tmpRoot, { recursive: true, force: true });
 await mkdir(tmpRoot, { recursive: true });
 
 console.log("Syncing typst-ygo lib files...");
-await syncTypstYgoLib();
+const typstLibFiles = await syncTypstYgoLib();
 
 console.log("Checking the latest static asset release...");
-const assetsRelease = await fetchAssetsRelease();
+const assetsFingerprint = await fetchAssetsFingerprint();
 const cachedAssetsFingerprint = await readCachedAssetsFingerprint();
 const hasStaticAssets = await hasUsableStaticAssets();
 
-if (refreshAssets || !hasStaticAssets || cachedAssetsFingerprint !== assetsRelease.fingerprint) {
+if (refreshAssets || !hasStaticAssets || cachedAssetsFingerprint !== assetsFingerprint) {
   const reason = refreshAssets
     ? "A refresh was requested"
     : !hasStaticAssets
       ? "Static assets are missing"
       : "The static asset release changed";
   console.log(`${reason}; downloading ${basename(ASSETS_URL)}...`);
-  await syncAssetsArchive(assetsRelease);
+  await syncAssetsArchive();
 } else {
   console.log("Keeping static assets from the current release.");
 }
@@ -337,7 +301,7 @@ console.log("Downloading latest card data...");
 await syncCardData();
 
 console.log("Writing public/asset-manifest.json...");
-await createAssetManifest(assetsRelease);
+await createAssetManifest(assetsFingerprint, typstLibFiles);
 await assertUsableAssets();
 
 console.log("Resource sync complete.");

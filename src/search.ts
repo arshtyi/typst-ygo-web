@@ -10,20 +10,20 @@ type SearchToken = {
   compactChars: string[];
 };
 
-export function normalizeSearchText(value: unknown): string {
+function normalizeSearchText(value: unknown): string {
   return String(value ?? "")
     .normalize("NFKC")
     .toLocaleLowerCase("zh-CN");
 }
 
-export function splitKeyword(keyword: string): string[] {
+function splitKeyword(keyword: string): string[] {
   return normalizeSearchText(keyword)
     .split(TOKEN_SPLIT)
     .map((token) => token.trim())
     .filter(Boolean);
 }
 
-export function normalizeCompactSearchText(value: unknown): string {
+function normalizeCompactSearchText(value: unknown): string {
   return normalizeSearchText(value).replace(COMPACT_SEARCH_IGNORED, "");
 }
 

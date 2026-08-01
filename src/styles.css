@@ -432,12 +432,7 @@ input:disabled {
   }
 
   .search-pane {
-    min-height: 0;
     border-right: 0;
-  }
-
-  .preview-pane {
-    min-height: 0;
   }
 }
 
