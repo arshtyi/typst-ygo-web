@@ -23,7 +23,7 @@ const FIELD_ORDER = [
 ] as const;
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
-  alias: "同名卡编号",
+  alias: "原画编号",
   atk: "攻击力",
   attribute: "属性",
   def: "守备力",
@@ -48,23 +48,20 @@ const ATTRIBUTE_NAMES = ["地", "水", "炎", "风", "光", "暗", "神"] as con
 const LINK_MARKER_NAMES = ["左上", "左", "左下", "下", "右下", "右", "右上", "上"] as const;
 const LIMIT_NAMES = ["禁止", "限制", "准限制", "无限制"] as const;
 const MAXIMUM_PART_NAMES = ["左", "中央", "右"] as const;
+const BLOCK_FIELDS: ReadonlySet<string> = new Set(["pendulumDescription", "description"]);
 
 export function formatCardInformation(kind: CardKind, card: RawCard): string {
-  const fields = orderedFields(card);
-  const details = [`制式：${kind === "ot" ? "ocg/tcg" : "rush duel"}`];
-  const sections: string[] = [];
-
-  for (const [key, value] of fields) {
+  const lines: string[] = [];
+  for (const [key, value] of orderedFields(card)) {
     const formatted = formatFieldValue(kind, card, key, value);
     const label = FIELD_LABELS[key] ?? humanizeKey(key);
-    if (formatted.includes("\n")) {
-      sections.push(`${label}：\n${formatted}`);
-    } else {
-      details.push(`${label}：${formatted}`);
-    }
+    lines.push(
+      BLOCK_FIELDS.has(key) || formatted.includes("\n")
+        ? `${label}：\n${formatted}`
+        : `${label}：${formatted}`,
+    );
   }
-
-  return [...details, ...sections.map((section) => `\n${section}`)].join("\n");
+  return lines.join("\n");
 }
 
 function orderedFields(card: RawCard): Array<[string, JsonValue]> {
@@ -112,7 +109,13 @@ function formatFieldValue(kind: CardKind, card: RawCard, key: string, value: Jso
 }
 
 function formatAttribute(card: RawCard, value: JsonValue): string {
-  if (!card.type.includes("怪兽") || typeof value !== "number") {
+  if (card.type.includes("魔法")) {
+    return "魔法";
+  }
+  if (card.type.includes("陷阱")) {
+    return "陷阱";
+  }
+  if (typeof value !== "number") {
     return formatValue(value);
   }
   return formatMappedNumber(value, ATTRIBUTE_NAMES);
@@ -143,7 +146,7 @@ function formatMappedNumber(value: JsonValue | undefined, names: readonly string
     return value === undefined ? "无" : formatValue(value);
   }
   const name = names[value];
-  return name ? `${name}（${value}）` : String(value);
+  return name ?? String(value);
 }
 
 function formatValue(value: JsonValue): string {
