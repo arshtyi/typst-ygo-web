@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import {
   mkdir,
+  readFile,
   readdir,
   rename,
   rm,
@@ -7,7 +9,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, extname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,13 +27,16 @@ const cardUrls = {
 
 await assertSubmodule(typstYgoRoot, "lib/mod.typ");
 await assertSubmodule(ygoAssetsRoot, "assets/ot/frame/000.png");
-const [typstSourceFiles, staticAssetSourceFiles] = await Promise.all([
+const [typstSourceFiles, assetSourceFiles] = await Promise.all([
   listFiles(typstLibRoot).then((files) => files.filter((path) => path.endsWith(".typ"))),
-  listFiles(assetsRoot).then((files) => files.filter(isStaticAsset)),
+  listFiles(assetsRoot),
 ]);
-await Promise.all([
+const staticAssetSourceFiles = assetSourceFiles.filter(isStaticAsset);
+const fontSourceFiles = assetSourceFiles.filter(isFontAsset);
+const [, , fontFiles] = await Promise.all([
   stageFiles(join(generatedRoot, "typst-ygo", "lib"), typstLibRoot, typstSourceFiles),
   stageFiles(join(generatedRoot, "assets"), assetsRoot, staticAssetSourceFiles),
+  stageFonts(join(generatedRoot, "fonts"), fontSourceFiles),
 ]);
 
 console.log("Downloading card data...");
@@ -42,7 +47,7 @@ await Promise.all(
 );
 
 console.log("Writing resource manifest...");
-await writeManifest(typstSourceFiles, staticAssetSourceFiles);
+await writeManifest(typstSourceFiles, staticAssetSourceFiles, fontFiles);
 console.log("Resources ready.");
 
 async function assertSubmodule(root, requiredFile) {
@@ -59,6 +64,27 @@ async function stageFiles(outputRoot, sourceRoot, sourceFiles) {
     await mkdir(dirname(outputPath), { recursive: true });
     await symlink(relative(dirname(outputPath), sourcePath), outputPath, "file");
   }
+}
+
+async function stageFonts(outputRoot, sourceFiles) {
+  await rm(outputRoot, { recursive: true, force: true });
+  const stagedFiles = [];
+  const seenHashes = new Set();
+
+  for (const sourcePath of sourceFiles) {
+    const hash = createHash("sha256").update(await readFile(sourcePath)).digest("hex");
+    if (seenHashes.has(hash)) {
+      continue;
+    }
+
+    seenHashes.add(hash);
+    const outputPath = join(outputRoot, `${hash}${extname(sourcePath).toLowerCase()}`);
+    await mkdir(dirname(outputPath), { recursive: true });
+    await symlink(relative(dirname(outputPath), sourcePath), outputPath, "file");
+    stagedFiles.push(outputPath);
+  }
+
+  return stagedFiles;
 }
 
 async function downloadCards(url, outputPath) {
@@ -113,7 +139,7 @@ function validateCards(data, sourceUrl) {
   }
 }
 
-async function writeManifest(typstFiles, assetFiles) {
+async function writeManifest(typstFiles, assetFiles, fontFiles) {
   const manifest = {
     generatedAt: new Date().toISOString(),
     typstLibFiles: typstFiles.map((path) =>
@@ -122,6 +148,7 @@ async function writeManifest(typstFiles, assetFiles) {
     staticAssetFiles: assetFiles.map((path) =>
       toPublicPath(join(generatedRoot, "assets", relative(assetsRoot, path))),
     ),
+    fontFiles: fontFiles.map(toPublicPath),
   };
 
   await writeFile(join(generatedRoot, "asset-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -145,7 +172,17 @@ async function listFiles(root) {
 
 function isStaticAsset(path) {
   const assetPath = relative(assetsRoot, path).split(sep).join("/");
-  return /^(ot|rd)\//u.test(assetPath) && !assetPath.includes("/card/") && !assetPath.includes("/images/");
+  return (
+    /^(ot|rd)\//u.test(assetPath) &&
+    !assetPath.includes("/card/") &&
+    !assetPath.includes("/font/") &&
+    !assetPath.includes("/images/")
+  );
+}
+
+function isFontAsset(path) {
+  const assetPath = relative(assetsRoot, path).split(sep).join("/");
+  return /^(ot|rd)\/font\/.+\.(ttf|otf)$/iu.test(assetPath);
 }
 
 function toPublicPath(path) {

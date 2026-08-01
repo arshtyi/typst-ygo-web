@@ -109,8 +109,7 @@ function configureRuntime(manifest: AssetManifest): void {
     getModule: () => rendererWasmUrl,
   });
 
-  const fontFiles = manifest.staticAssetFiles.filter((file) => /\/font\/.+\.(ttf|otf)$/iu.test(file));
-  for (const fontFile of fontFiles) {
+  for (const fontFile of manifest.fontFiles) {
     $typst.use(TypstSnippet.preloadFontFromUrl(publicUrl(fontFile)));
   }
 

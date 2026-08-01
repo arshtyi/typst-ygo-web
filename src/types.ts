@@ -21,6 +21,7 @@ export type AssetManifest = {
   generatedAt: string;
   typstLibFiles: string[];
   staticAssetFiles: string[];
+  fontFiles: string[];
 };
 
 export type CardRenderOptions = {
