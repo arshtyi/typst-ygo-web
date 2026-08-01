@@ -61,10 +61,15 @@ jobs:
         run: npm ci
 
       - name: Sync upstream resources
-        run: npm run sync:resources
+        id: sync-resources
+        run: |
+          npm run sync:resources
+          if [ -f .tmp/sync-resources/assets-refreshed ]; then
+            echo "assets-refreshed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Save generated resources
-        if: env.REFRESH_ASSETS == 'true' || steps.restore-resources.outputs.cache-matched-key == ''
+        if: env.REFRESH_ASSETS == 'true' || steps.restore-resources.outputs.cache-matched-key == '' || steps.sync-resources.outputs.assets-refreshed == 'true'
         uses: actions/cache/save@v4
         with:
           path: |
