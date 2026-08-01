@@ -1,4 +1,6 @@
 import "./styles.css";
+import { formatCardInformation } from "./cardInfo";
+import { supportsClipboardTypes, textBlob, writeClipboardRepresentations } from "./clipboard";
 import { indexCards, searchCards } from "./search";
 import {
   DEFAULT_CARD_RENDER_OPTIONS,
@@ -12,6 +14,7 @@ import type { AssetManifest, CardKind, CardRenderOptions, IndexedCard, RawCard }
 
 type KindFilter = CardKind | "all";
 const PNG_MIME_TYPE = "image/png";
+const TEXT_MIME_TYPE = "text/plain";
 
 type UrlState = {
   kind: KindFilter;
@@ -72,7 +75,8 @@ app.innerHTML = `
           </div>
           <div class="actions">
             <button id="randomButton" type="button" disabled>Random card</button>
-            <button id="copyButton" type="button" disabled>Copy image</button>
+            <button id="copyImageButton" type="button" disabled>Copy image</button>
+            <button id="copyCardButton" type="button" disabled>Copy card + info</button>
             <button id="downloadButton" type="button" disabled>Download PNG</button>
           </div>
         </div>
@@ -90,7 +94,8 @@ const resourceSummary = getElement<HTMLSpanElement>("resourceSummary");
 const statusNode = getElement<HTMLDivElement>("status");
 const resultsNode = getElement<HTMLDivElement>("results");
 const selectionNode = getElement<HTMLDivElement>("selection");
-const copyButton = getElement<HTMLButtonElement>("copyButton");
+const copyImageButton = getElement<HTMLButtonElement>("copyImageButton");
+const copyCardButton = getElement<HTMLButtonElement>("copyCardButton");
 const downloadButton = getElement<HTMLButtonElement>("downloadButton");
 const randomButton = getElement<HTMLButtonElement>("randomButton");
 const compressDescriptionInput = getElement<HTMLInputElement>("compressDescriptionInput");
@@ -98,10 +103,14 @@ const drawPasswordInput = getElement<HTMLInputElement>("drawPasswordInput");
 const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
 const renderOptionInputs = [compressDescriptionInput, drawPasswordInput];
-const imageClipboardAvailable = supportsImageClipboard();
+const imageClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE);
+const cardClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE, TEXT_MIME_TYPE);
 
 if (!imageClipboardAvailable) {
-  copyButton.title = "Copying images requires a supported browser over HTTPS.";
+  copyImageButton.title = "Copying images requires a supported browser over HTTPS.";
+}
+if (!cardClipboardAvailable) {
+  copyCardButton.title = "Copying images with card information requires a supported browser over HTTPS.";
 }
 
 let manifest: AssetManifest | null = null;
@@ -132,8 +141,12 @@ randomButton.addEventListener("click", () => {
   void selectRandomCard();
 });
 
-copyButton.addEventListener("click", () => {
-  void copySelectedCard();
+copyImageButton.addEventListener("click", () => {
+  void copySelectedCard(false);
+});
+
+copyCardButton.addEventListener("click", () => {
+  void copySelectedCard(true);
 });
 
 downloadButton.addEventListener("click", () => {
@@ -258,7 +271,8 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
   const selectionLabel = `${kindLabel(item.kind)} · ${item.card.id} · ${item.card.name}`;
   selectionNode.textContent = selectionLabel;
   selectionNode.title = selectionLabel;
-  copyButton.disabled = !imageClipboardAvailable;
+  copyImageButton.disabled = !imageClipboardAvailable;
+  copyCardButton.disabled = !cardClipboardAvailable;
   downloadButton.disabled = false;
   setEmptyPreview("Double-click this card to see the preview.");
   if (manifest) {
@@ -275,7 +289,8 @@ function clearSelection(): void {
   selected = null;
   selectionNode.textContent = "No card selected";
   selectionNode.removeAttribute("title");
-  copyButton.disabled = true;
+  copyImageButton.disabled = true;
+  copyCardButton.disabled = true;
   downloadButton.disabled = true;
   setEmptyPreview("Search for a card to get started.");
 }
@@ -317,21 +332,32 @@ async function downloadSelectedCard(): Promise<void> {
   }
 }
 
-async function copySelectedCard(): Promise<void> {
-  if (!selected || !manifest || !imageClipboardAvailable) {
+async function copySelectedCard(includeInformation: boolean): Promise<void> {
+  const clipboardAvailable = includeInformation ? cardClipboardAvailable : imageClipboardAvailable;
+  if (!selected || !manifest || !clipboardAvailable) {
     return;
   }
 
-  setBusy(true, "Copying the card image...");
+  const item = selected;
+  setBusy(true, includeInformation ? "Copying the card and its information..." : "Copying the card image...");
   try {
-    const png = renderCardPng(manifest, selected.kind, selected.card, currentRenderOptions()).then((bytes) =>
+    const png = renderCardPng(manifest, item.kind, item.card, currentRenderOptions()).then((bytes) =>
       bytesToBlob(bytes, PNG_MIME_TYPE),
     );
-    await navigator.clipboard.write([new ClipboardItem({ [PNG_MIME_TYPE]: png })]);
-    setStatus("Card image copied to your clipboard.");
+    const representations: Record<string, Blob | Promise<Blob>> = { [PNG_MIME_TYPE]: png };
+    if (includeInformation) {
+      representations[TEXT_MIME_TYPE] = textBlob(formatCardInformation(item.kind, item.card));
+    }
+    await writeClipboardRepresentations(representations);
+    setStatus(includeInformation ? "Card image and information copied to your clipboard." : "Card image copied.");
   } catch (error) {
-    console.error(`Failed to copy card ${selected.card.id}.`, error);
-    setStatus("We couldn't copy the card image. Check your clipboard permission and try again.", true);
+    console.error(`Failed to copy card ${item.card.id}.`, error);
+    setStatus(
+      includeInformation
+        ? "We couldn't copy the card and its information. Check your clipboard permission and try again."
+        : "We couldn't copy the card image. Check your clipboard permission and try again.",
+      true,
+    );
   } finally {
     setBusy(false);
   }
@@ -410,7 +436,8 @@ function currentRenderOptions(): CardRenderOptions {
 
 function setBusy(busy: boolean, message?: string): void {
   const disabled = busy || !cardLibraryAvailable;
-  copyButton.disabled = disabled || !selected || !imageClipboardAvailable;
+  copyImageButton.disabled = disabled || !selected || !imageClipboardAvailable;
+  copyCardButton.disabled = disabled || !selected || !cardClipboardAvailable;
   downloadButton.disabled = disabled || !selected;
   randomButton.disabled = disabled || !hasRandomCards();
   searchInput.disabled = disabled;
@@ -426,15 +453,6 @@ function setBusy(busy: boolean, message?: string): void {
   if (message) {
     setStatus(message);
   }
-}
-
-function supportsImageClipboard(): boolean {
-  return (
-    window.isSecureContext &&
-    typeof navigator.clipboard?.write === "function" &&
-    typeof ClipboardItem !== "undefined" &&
-    (typeof ClipboardItem.supports !== "function" || ClipboardItem.supports(PNG_MIME_TYPE))
-  );
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
