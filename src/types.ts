@@ -21,11 +21,6 @@ export type AssetManifest = {
   generatedAt: string;
   typstLibFiles: string[];
   staticAssetFiles: string[];
-  sources: {
-    typstYgo: string;
-    assets: string;
-    cards: Record<CardKind, string>;
-  };
 };
 
 export type CardRenderOptions = {

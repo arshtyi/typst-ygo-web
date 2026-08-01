@@ -70,81 +70,44 @@ input:disabled {
   letter-spacing: 0;
 }
 
-.resource-details {
-  margin-top: 10px;
-  color: #5f5a4e;
-  font-size: 13px;
-}
-
-.resource-details summary {
+.resource-status {
   display: inline-flex;
-  min-height: 28px;
+  max-width: 100%;
   align-items: center;
-  gap: 6px;
-  border: 1px solid #d8d4c7;
-  border-radius: 8px;
-  padding: 0 10px;
-  background: #ffffff;
-  color: #4f493e;
-  cursor: pointer;
-  font-weight: 650;
-  list-style: none;
-  user-select: none;
-}
-
-.resource-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.resource-details summary::before {
-  color: #7d4f2a;
-  content: ">";
+  gap: 7px;
+  margin-top: 7px;
+  color: #686256;
   font-size: 12px;
-}
-
-.resource-details[open] summary::before {
-  content: "v";
-}
-
-.resource-details summary:hover {
-  border-color: #0f766e;
-}
-
-.resource-meta {
-  margin-top: 8px;
-  border: 1px solid #e0dccf;
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: #ffffff;
-  line-height: 1.5;
-}
-
-.resource-list {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 12px;
-  margin: 0;
-}
-
-.resource-list dt {
-  color: #7d4f2a;
-  font-weight: 700;
-}
-
-.resource-list dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.resource-meta a {
-  color: #0f766e;
   font-weight: 650;
-  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
-.resource-meta a:hover {
-  text-decoration: underline;
+.resource-status::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #15966d;
+  box-shadow: 0 0 0 3px rgb(21 150 109 / 12%);
+  content: "";
+}
+
+.resource-status.loading::before {
+  background: #aaa496;
+  box-shadow: none;
+}
+
+.resource-status.error::before {
+  background: #b42318;
+  box-shadow: 0 0 0 3px rgb(180 35 24 / 10%);
+}
+
+.resource-status > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .search-controls {
@@ -469,15 +432,6 @@ input:disabled {
 
   .actions button {
     min-width: 0;
-  }
-
-  .resource-list {
-    grid-template-columns: 1fr;
-    gap: 2px;
-  }
-
-  .resource-list dd {
-    margin-bottom: 6px;
   }
 
   .preview {

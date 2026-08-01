@@ -18,13 +18,9 @@ const ygoAssetsRoot = join(projectRoot, "vendor", "ygo-assets");
 const typstLibRoot = join(typstYgoRoot, "lib");
 const assetsRoot = join(ygoAssetsRoot, "assets");
 
-const sources = {
-  typstYgo: "https://github.com/arshtyi/typst-ygo",
-  assets: "https://github.com/arshtyi/ygo-assets",
-  cards: {
-    ot: "https://github.com/arshtyi/ygo-cards/releases/download/latest/ot.json",
-    rd: "https://github.com/arshtyi/ygo-cards/releases/download/latest/rd.json",
-  },
+const cardUrls = {
+  ot: "https://github.com/arshtyi/ygo-cards/releases/download/latest/ot.json",
+  rd: "https://github.com/arshtyi/ygo-cards/releases/download/latest/rd.json",
 };
 
 await assertSubmodule(typstYgoRoot, "lib/mod.typ");
@@ -40,7 +36,7 @@ await Promise.all([
 
 console.log("Downloading card data...");
 await Promise.all(
-  Object.entries(sources.cards).map(([kind, url]) =>
+  Object.entries(cardUrls).map(([kind, url]) =>
     downloadCards(url, join(generatedRoot, "cards", `${kind}.json`)),
   ),
 );
@@ -120,7 +116,6 @@ function validateCards(data, sourceUrl) {
 async function writeManifest(typstFiles, assetFiles) {
   const manifest = {
     generatedAt: new Date().toISOString(),
-    sources,
     typstLibFiles: typstFiles.map((path) =>
       toPublicPath(join(generatedRoot, "typst-ygo", "lib", relative(typstLibRoot, path))),
     ),

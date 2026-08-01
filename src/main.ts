@@ -13,11 +13,6 @@ type UrlState = {
   drawPassword: boolean;
 };
 
-type SourceLink = {
-  label: string;
-  url: string;
-};
-
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) {
   throw new Error("Missing #app root.");
@@ -29,10 +24,9 @@ app.innerHTML = `
       <header class="topbar">
         <div>
           <h1>typst-ygo web</h1>
-          <details class="resource-details">
-            <summary><span id="resourceSummary">Loading card library...</span></summary>
-            <div id="resourceMeta" class="resource-meta">Card details will appear when loading is complete.</div>
-          </details>
+          <div id="resourceStatus" class="resource-status loading" aria-live="polite">
+            <span id="resourceSummary">Loading cards...</span>
+          </div>
         </div>
       </header>
 
@@ -84,8 +78,8 @@ app.innerHTML = `
 `;
 
 const searchInput = getElement<HTMLInputElement>("searchInput");
+const resourceStatus = getElement<HTMLDivElement>("resourceStatus");
 const resourceSummary = getElement<HTMLSpanElement>("resourceSummary");
-const resourceMeta = getElement<HTMLDivElement>("resourceMeta");
 const statusNode = getElement<HTMLDivElement>("status");
 const resultsNode = getElement<HTMLDivElement>("results");
 const selectionNode = getElement<HTMLDivElement>("selection");
@@ -148,7 +142,7 @@ async function initialize(): Promise<void> {
 
     allCards = [...indexCards("ot", otCards), ...indexCards("rd", rdCards)];
     cardLibraryAvailable = true;
-    renderResourceMeta(otCards.length, rdCards.length);
+    renderResourceStatus(otCards.length, rdCards.length);
     setBusy(false);
     await applyUrlState(readUrlState());
   } catch (error) {
@@ -156,8 +150,10 @@ async function initialize(): Promise<void> {
     cardLibraryAvailable = false;
     setBusy(false);
     setStatus("We couldn't load the card library. Refresh the page to try again.", true);
-    resourceSummary.textContent = "Card library unavailable";
-    resourceMeta.textContent = "Try refreshing the page. The data source may be temporarily unavailable.";
+    resourceStatus.classList.remove("loading");
+    resourceStatus.classList.add("error");
+    resourceStatus.title = "Refresh the page to try loading the card library again.";
+    resourceSummary.textContent = "Cards unavailable";
     setEmptyPreview("Card features are unavailable because the card library couldn't be loaded.");
   }
 }
@@ -441,81 +437,17 @@ async function applyUrlState(state: UrlState): Promise<void> {
   await renderSelectedCard(`You're viewing ${item.card.name} from a shared link.`);
 }
 
-function renderResourceMeta(otCount: number, rdCount: number): void {
+function renderResourceStatus(otCount: number, rdCount: number): void {
   const total = otCount + rdCount;
   const generatedAt = formatGeneratedAt(manifest?.generatedAt);
-  const sourceLinks = sourceLinksFromManifest(manifest);
 
-  resourceSummary.textContent = `${total.toLocaleString("en-US")} cards loaded`;
-  resourceSummary.title =
-    `OCG/TCG: ${otCount.toLocaleString("en-US")} · Rush Duel: ${rdCount.toLocaleString("en-US")}`;
-
-  const list = document.createElement("dl");
-  list.className = "resource-list";
-
-  appendResourceRow(list, "Library size", document.createTextNode(`${total.toLocaleString("en-US")} cards`));
-  appendResourceRow(
-    list,
-    "Formats",
-    document.createTextNode(
-      `OCG/TCG: ${otCount.toLocaleString("en-US")} · Rush Duel: ${rdCount.toLocaleString("en-US")}`,
-    ),
-  );
-  appendResourceRow(list, "Last updated", document.createTextNode(generatedAt));
-
-  if (sourceLinks.length > 0) {
-    const sources = document.createDocumentFragment();
-    for (const [index, link] of sourceLinks.entries()) {
-      if (index > 0) {
-        sources.append(document.createTextNode(" / "));
-      }
-      sources.append(createSourceAnchor(link));
-    }
-    appendResourceRow(list, "Sources", sources);
-  }
-
-  resourceMeta.replaceChildren(list);
-  resourceMeta.title = manifest?.generatedAt ? `generatedAt: ${manifest.generatedAt}` : "";
-}
-
-function appendResourceRow(list: HTMLDListElement, label: string, value: Node): void {
-  const term = document.createElement("dt");
-  term.textContent = label;
-
-  const description = document.createElement("dd");
-  description.append(value);
-
-  list.append(term, description);
-}
-
-function createSourceAnchor(link: SourceLink): HTMLAnchorElement {
-  const anchor = document.createElement("a");
-  anchor.href = link.url;
-  anchor.target = "_blank";
-  anchor.rel = "noopener noreferrer";
-  anchor.textContent = link.label;
-  return anchor;
-}
-
-function sourceLinksFromManifest(assetManifest: AssetManifest | null): SourceLink[] {
-  if (!assetManifest) {
-    return [];
-  }
-
-  const { sources } = assetManifest;
-  const links: SourceLink[] = [];
-  appendSourceLink(links, "typst-ygo", sources.typstYgo);
-  appendSourceLink(links, "Card assets", sources.assets);
-  appendSourceLink(links, "OCG/TCG data", sources.cards.ot);
-  appendSourceLink(links, "RD data", sources.cards.rd);
-
-  return links;
-}
-
-function appendSourceLink(links: SourceLink[], label: string, value: unknown): void {
-  if (typeof value === "string" && /^https?:\/\//iu.test(value)) {
-    links.push({ label, url: value });
-  }
+  resourceStatus.classList.remove("loading", "error");
+  resourceStatus.title = [
+    `OCG/TCG: ${otCount.toLocaleString("en-US")}`,
+    `Rush Duel: ${rdCount.toLocaleString("en-US")}`,
+    `Updated: ${generatedAt}`,
+  ].join(" · ");
+  resourceSummary.textContent = `${total.toLocaleString("en-US")} cards`;
 }
 
 function formatGeneratedAt(value: string | undefined): string {
