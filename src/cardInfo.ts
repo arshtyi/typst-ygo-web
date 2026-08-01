@@ -68,7 +68,9 @@ export function formatCardInformation(kind: CardKind, card: RawCard): string {
 }
 
 function orderedFields(card: RawCard): Array<[string, JsonValue]> {
-  const entries = Object.entries(card).filter((entry): entry is [string, JsonValue] => entry[1] !== undefined);
+  const entries = Object.entries(card).filter(
+    (entry): entry is [string, JsonValue] => entry[1] !== undefined,
+  );
   const values = new Map(entries);
   const ordered: Array<[string, JsonValue]> = [];
 
@@ -95,7 +97,7 @@ function formatFieldValue(kind: CardKind, card: RawCard, key: string, value: Jso
     case "attribute":
       return formatAttribute(card, value);
     case "legend":
-      return value === true ? "是" : "否";
+      return typeof value === "boolean" ? (value ? "是" : "否") : formatValue(value);
     case "lf":
       return formatLimit(kind, value);
     case "linkMarker":
@@ -119,7 +121,10 @@ function formatAttribute(card: RawCard, value: JsonValue): string {
 function formatLimit(kind: CardKind, value: JsonValue): string {
   if (kind === "ot" && Array.isArray(value)) {
     const [ocg, tcg, ...rest] = value;
-    const parts = [`OCG：${formatMappedNumber(ocg, LIMIT_NAMES)}`, `TCG：${formatMappedNumber(tcg, LIMIT_NAMES)}`];
+    const parts = [
+      `OCG：${formatMappedNumber(ocg, LIMIT_NAMES)}`,
+      `TCG：${formatMappedNumber(tcg, LIMIT_NAMES)}`,
+    ];
     parts.push(...rest.map(formatValue));
     return parts.join("；");
   }
@@ -158,6 +163,9 @@ function formatValue(value: JsonValue): string {
 }
 
 function humanizeKey(key: string): string {
-  const words = key.replace(/([a-z\d])([A-Z])/gu, "$1 $2").replace(/[_-]+/gu, " ").trim();
+  const words = key
+    .replace(/([a-z\d])([A-Z])/gu, "$1 $2")
+    .replace(/[_-]+/gu, " ")
+    .trim();
   return words ? words[0].toUpperCase() + words.slice(1) : key;
 }

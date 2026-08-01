@@ -1,11 +1,10 @@
 import "./styles.css";
 import { formatCardInformation } from "./cardInfo";
 import { supportsClipboardTypes, textBlob, writeClipboardRepresentations } from "./clipboard";
+import { bytesToBlob, downloadBytes } from "./files";
 import { indexCards, searchCards } from "./search";
 import {
   DEFAULT_CARD_RENDER_OPTIONS,
-  bytesToBlob,
-  downloadBytes,
   preloadCardResources,
   renderCardPng,
   renderCardSvg,
@@ -13,6 +12,7 @@ import {
 import type { AssetManifest, CardKind, CardRenderOptions, IndexedCard, RawCard } from "./types";
 
 type KindFilter = CardKind | "all";
+type CopyMode = "image" | "image-and-information";
 const PNG_MIME_TYPE = "image/png";
 const TEXT_MIME_TYPE = "text/plain";
 
@@ -142,11 +142,11 @@ randomButton.addEventListener("click", () => {
 });
 
 copyImageButton.addEventListener("click", () => {
-  void copySelectedCard(false);
+  void copySelectedCard("image");
 });
 
 copyCardButton.addEventListener("click", () => {
-  void copySelectedCard(true);
+  void copySelectedCard("image-and-information");
 });
 
 downloadButton.addEventListener("click", () => {
@@ -332,7 +332,8 @@ async function downloadSelectedCard(): Promise<void> {
   }
 }
 
-async function copySelectedCard(includeInformation: boolean): Promise<void> {
+async function copySelectedCard(mode: CopyMode): Promise<void> {
+  const includeInformation = mode === "image-and-information";
   const clipboardAvailable = includeInformation ? cardClipboardAvailable : imageClipboardAvailable;
   if (!selected || !manifest || !clipboardAvailable) {
     return;

@@ -1,4 +1,4 @@
-export type ClipboardRepresentations = Readonly<Record<string, Blob | Promise<Blob>>>;
+type ClipboardRepresentations = Readonly<Record<string, Blob | Promise<Blob>>>;
 
 export function supportsClipboardTypes(...types: string[]): boolean {
   return (
