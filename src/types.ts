@@ -1,6 +1,9 @@
 export type CardKind = "ot" | "rd";
 
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
 export type RawCard = {
+  [key: string]: JsonValue | undefined;
   id: number;
   image: number;
   name: string;
