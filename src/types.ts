@@ -5,6 +5,10 @@ export type RawCard = {
   image: number;
   name: string;
   description: string;
+  attribute?: number;
+  legend?: boolean;
+  linkMarker?: number[];
+  maximumAtk?: number | null;
   pendulumDescription?: string;
   type: string[];
 };

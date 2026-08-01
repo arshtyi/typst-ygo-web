@@ -4,6 +4,7 @@ import {
   DEFAULT_CARD_RENDER_OPTIONS,
   bytesToBlob,
   downloadBytes,
+  preloadCardResources,
   renderCardPng,
   renderCardSvg,
 } from "./typstRenderer";
@@ -260,6 +261,11 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
   copyButton.disabled = !imageClipboardAvailable;
   downloadButton.disabled = false;
   setEmptyPreview("Double-click this card to see the preview.");
+  if (manifest) {
+    void preloadCardResources(manifest, item.kind, item.card).catch((error: unknown) => {
+      console.warn(`Failed to preload card ${item.card.id}.`, error);
+    });
+  }
   if (syncUrl) {
     updateUrlState();
   }

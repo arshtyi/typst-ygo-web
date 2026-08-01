@@ -1,6 +1,7 @@
 import { $typst, TypstSnippet } from "@myriaddreamin/typst.ts/contrib/snippet";
 import compilerWasmUrl from "@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm?url";
 import rendererWasmUrl from "@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm?url";
+import { cardAssetFiles } from "./cardAssets";
 import { createCardDocument } from "./cardDocument";
 import type { AssetManifest, CardKind, CardRenderOptions, RawCard } from "./types";
 
@@ -19,9 +20,20 @@ const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10] as const;
 const textEncoder = new TextEncoder();
 
 let runtimeConfigured = false;
-let sourceFilesLoaded = false;
-const loadedStaticKinds = new Set<CardKind>();
+let sourceFilesPromise: Promise<void> | null = null;
+let compilerMutationQueue: Promise<void> = Promise.resolve();
+const staticAssetPromises = new Map<string, Promise<void>>();
+const cardImagePromises = new Map<string, Promise<void>>();
 const mappedImagePaths: string[] = [];
+
+export async function preloadCardResources(
+  manifest: AssetManifest,
+  kind: CardKind,
+  card: RawCard,
+): Promise<void> {
+  configureRuntime(manifest);
+  await Promise.all([loadTypstSources(manifest), loadStaticAssets(manifest, kind, card), loadCardImage(kind, card)]);
+}
 
 export async function renderCardSvg(
   manifest: AssetManifest,
@@ -88,13 +100,10 @@ async function prepareDocument(
   card: RawCard,
   options: Readonly<CardRenderOptions>,
 ): Promise<void> {
-  configureRuntime(manifest);
-  await loadTypstSources(manifest);
-  await loadStaticAssets(manifest, kind);
-  await loadCardImage(kind, card);
+  await preloadCardResources(manifest, kind, card);
 
-  await $typst.mapShadow(SELECTED_CARD_PATH, textEncoder.encode(JSON.stringify(card)));
-  await $typst.addSource(MAIN_FILE_PATH, createCardDocument(kind, SELECTED_CARD_PATH, options));
+  await mutateCompiler(() => $typst.mapShadow(SELECTED_CARD_PATH, textEncoder.encode(JSON.stringify(card))));
+  await mutateCompiler(() => $typst.addSource(MAIN_FILE_PATH, createCardDocument(kind, SELECTED_CARD_PATH, options)));
 }
 
 function configureRuntime(manifest: AssetManifest): void {
@@ -117,30 +126,50 @@ function configureRuntime(manifest: AssetManifest): void {
 }
 
 async function loadTypstSources(manifest: AssetManifest): Promise<void> {
-  if (sourceFilesLoaded) {
-    return;
+  if (sourceFilesPromise) {
+    return sourceFilesPromise;
   }
 
-  for (const file of manifest.typstLibFiles) {
-    const content = await fetchText(file);
-    await $typst.addSource(`/${file.replace(/^typst-ygo\//u, "")}`, content);
-  }
+  const task = (async () => {
+    const sources = await Promise.all(
+      manifest.typstLibFiles.map(async (file) => ({
+        content: await fetchText(file),
+        path: `/${file.replace(/^typst-ygo\//u, "")}`,
+      })),
+    );
+    await Promise.all(sources.map((source) => mutateCompiler(() => $typst.addSource(source.path, source.content))));
+  })();
 
-  sourceFilesLoaded = true;
+  sourceFilesPromise = task;
+  void task.catch(() => {
+    if (sourceFilesPromise === task) {
+      sourceFilesPromise = null;
+    }
+  });
+  return task;
 }
 
-async function loadStaticAssets(manifest: AssetManifest, kind: CardKind): Promise<void> {
-  if (loadedStaticKinds.has(kind)) {
-    return;
-  }
-
-  const files = manifest.staticAssetFiles.filter((file) => file.startsWith(`assets/${kind}/`));
+async function loadStaticAssets(manifest: AssetManifest, kind: CardKind, card: RawCard): Promise<void> {
+  const availableFiles = new Set(manifest.staticAssetFiles);
+  const files = cardAssetFiles(kind, card);
   for (const file of files) {
-    const data = await fetchBytes(file);
-    await $typst.mapShadow(`/${file}`, data);
+    if (!availableFiles.has(file)) {
+      throw new Error(`Required card asset is missing from the manifest: ${file}`);
+    }
+  }
+  await Promise.all(files.map(loadStaticAsset));
+}
+
+function loadStaticAsset(file: string): Promise<void> {
+  const existing = staticAssetPromises.get(file);
+  if (existing) {
+    return existing;
   }
 
-  loadedStaticKinds.add(kind);
+  const task = fetchBytes(file).then((data) => mutateCompiler(() => $typst.mapShadow(`/${file}`, data)));
+  staticAssetPromises.set(file, task);
+  void task.catch(() => staticAssetPromises.delete(file));
+  return task;
 }
 
 async function loadCardImage(kind: CardKind, card: RawCard): Promise<void> {
@@ -150,21 +179,49 @@ async function loadCardImage(kind: CardKind, card: RawCard): Promise<void> {
   }
 
   const shadowPath = `/assets/${kind}/images/${imageId}.jpg`;
-  if (mappedImagePaths.includes(shadowPath)) {
-    return;
+  const existing = cardImagePromises.get(shadowPath);
+  if (existing) {
+    touchMappedImage(shadowPath);
+    return existing;
   }
 
   const imageUrl = `https://images.ygoprodeck.com/images/cards_cropped/${imageId}.jpg`;
-  const imageBytes = await fetchCardImageBytes(imageUrl);
-  await $typst.mapShadow(shadowPath, imageBytes);
-  mappedImagePaths.push(shadowPath);
+  const task = fetchCardImageBytes(imageUrl).then(async (imageBytes) => {
+    await mutateCompiler(() => $typst.mapShadow(shadowPath, imageBytes));
+    touchMappedImage(shadowPath);
+    await evictMappedImages();
+  });
+  cardImagePromises.set(shadowPath, task);
+  void task.catch(() => cardImagePromises.delete(shadowPath));
+  await task;
+}
 
+function touchMappedImage(path: string): void {
+  const index = mappedImagePaths.indexOf(path);
+  if (index >= 0) {
+    mappedImagePaths.splice(index, 1);
+  }
+  mappedImagePaths.push(path);
+}
+
+async function evictMappedImages(): Promise<void> {
   while (mappedImagePaths.length > MAX_MAPPED_IMAGES) {
     const stalePath = mappedImagePaths.shift();
-    if (stalePath) {
-      await $typst.unmapShadow(stalePath);
+    if (!stalePath) {
+      return;
     }
+    cardImagePromises.delete(stalePath);
+    await mutateCompiler(() => $typst.unmapShadow(stalePath));
   }
+}
+
+function mutateCompiler<T>(operation: () => Promise<T>): Promise<T> {
+  const result = compilerMutationQueue.then(operation);
+  compilerMutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
 async function fetchCardImageBytes(sourceUrl: string): Promise<Uint8Array> {
