@@ -59,11 +59,16 @@ input:disabled {
 }
 
 .topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 28px 24px 18px;
   border-bottom: 1px solid #e0dccf;
 }
 
 .topbar h1 {
+  flex: 0 0 auto;
   margin: 0;
   font-size: 22px;
   font-weight: 720;
@@ -73,9 +78,11 @@ input:disabled {
 .resource-status {
   display: inline-flex;
   max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
   align-items: center;
   gap: 7px;
-  margin-top: 7px;
+  margin-left: auto;
   color: #686256;
   font-size: 12px;
   font-weight: 650;

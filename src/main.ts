@@ -22,11 +22,9 @@ app.innerHTML = `
   <main class="app-shell">
     <section class="search-pane" aria-label="Card search">
       <header class="topbar">
-        <div>
-          <h1>typst-ygo web</h1>
-          <div id="resourceStatus" class="resource-status loading" aria-live="polite">
-            <span id="resourceSummary">Loading cards...</span>
-          </div>
+        <h1>typst-ygo web</h1>
+        <div id="resourceStatus" class="resource-status loading" aria-live="polite">
+          <span id="resourceSummary">Loading cards...</span>
         </div>
       </header>
 
