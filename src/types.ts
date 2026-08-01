@@ -6,9 +6,7 @@ export type RawCard = {
   name: string;
   description: string;
   pendulumDescription?: string;
-  pendulumDescsription?: string;
-  type?: string[];
-  [key: string]: unknown;
+  type: string[];
 };
 
 export type IndexedCard = {
@@ -23,7 +21,15 @@ export type AssetManifest = {
   generatedAt: string;
   typstLibFiles: string[];
   staticAssetFiles: string[];
-  sources?: Record<string, unknown>;
+  sources: {
+    typstYgo: string;
+    assets: string;
+    cards: Record<CardKind, string>;
+  };
+  resourceVersions: {
+    typstYgo: { revision: string };
+    assets: { revision: string };
+  };
 };
 
 export type CardRenderOptions = {

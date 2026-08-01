@@ -221,7 +221,7 @@ function createResultButton(item: IndexedCard): HTMLButtonElement {
 
   const meta = document.createElement("span");
   meta.className = "result-meta";
-  meta.textContent = `${kindLabel(item.kind)} · ${item.card.id} · ${item.card.type?.join("/") ?? ""}`;
+  meta.textContent = `${kindLabel(item.kind)} · ${item.card.id} · ${item.card.type.join("/")}`;
 
   const description = document.createElement("span");
   description.className = "result-description";
@@ -498,21 +498,16 @@ function createSourceAnchor(link: SourceLink): HTMLAnchorElement {
 }
 
 function sourceLinksFromManifest(assetManifest: AssetManifest | null): SourceLink[] {
-  const sources = assetManifest?.sources;
-  if (!isRecord(sources)) {
+  if (!assetManifest) {
     return [];
   }
 
+  const { sources } = assetManifest;
   const links: SourceLink[] = [];
   appendSourceLink(links, "typst-ygo", sources.typstYgo);
   appendSourceLink(links, "Card assets", sources.assets);
-
-  if (typeof sources.cards === "string") {
-    appendSourceLink(links, "Card data", sources.cards);
-  } else if (isRecord(sources.cards)) {
-    appendSourceLink(links, "OCG/TCG data", sources.cards.ot);
-    appendSourceLink(links, "RD data", sources.cards.rd);
-  }
+  appendSourceLink(links, "OCG/TCG data", sources.cards.ot);
+  appendSourceLink(links, "RD data", sources.cards.rd);
 
   return links;
 }
@@ -521,10 +516,6 @@ function appendSourceLink(links: SourceLink[], label: string, value: unknown): v
   if (typeof value === "string" && /^https?:\/\//iu.test(value)) {
     links.push({ label, url: value });
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function formatGeneratedAt(value: string | undefined): string {

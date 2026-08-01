@@ -1,6 +1,7 @@
 import { $typst, TypstSnippet } from "@myriaddreamin/typst.ts/contrib/snippet";
 import compilerWasmUrl from "@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm?url";
 import rendererWasmUrl from "@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm?url";
+import { createCardDocument } from "./cardDocument";
 import type { AssetManifest, CardKind, CardRenderOptions, RawCard } from "./types";
 
 const MAIN_FILE_PATH = "/runtime/main.typ";
@@ -92,16 +93,8 @@ async function prepareDocument(
   await loadStaticAssets(manifest, kind);
   await loadCardImage(kind, card);
 
-  const rendererName = kind === "ot" ? "ot_card" : "rd_card";
-  const mainContent = [
-    `#import "/lib/mod.typ": ${rendererName}`,
-    `#let card = json("${SELECTED_CARD_PATH}")`,
-    `#${rendererName}(card, compress_description: ${options.compressDescription}, draw_password: ${options.drawPassword})`,
-    "",
-  ].join("\n");
-
   await $typst.mapShadow(SELECTED_CARD_PATH, textEncoder.encode(JSON.stringify(card)));
-  await $typst.addSource(MAIN_FILE_PATH, mainContent);
+  await $typst.addSource(MAIN_FILE_PATH, createCardDocument(kind, SELECTED_CARD_PATH, options));
 }
 
 function configureRuntime(manifest: AssetManifest): void {

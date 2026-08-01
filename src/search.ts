@@ -34,7 +34,6 @@ export function indexCards(kind: CardKind, cards: RawCard[]): IndexedCard[] {
       card.name,
       card.description,
       card.pendulumDescription,
-      card.pendulumDescsription,
     ];
     const compactSearchText = searchFields.map(normalizeCompactSearchText).filter(Boolean).join("\n");
 
