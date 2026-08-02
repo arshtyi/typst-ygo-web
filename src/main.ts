@@ -56,7 +56,7 @@ app.innerHTML = `
         />
         <div class="segmented" aria-label="card format">
           <button class="active" type="button" data-kind="all" disabled>all</button>
-          <button type="button" data-kind="ot" disabled>ocg/tcg</button>
+          <button type="button" data-kind="ot" disabled>ot</button>
           <button type="button" data-kind="rd" disabled>rd</button>
         </div>
       </div>
@@ -354,9 +354,9 @@ async function copySelectedCard(mode: CopyMode): Promise<void> {
     const information = includeInformation ? formatCardInformation(item.kind, item.card) : "";
     const representations: Record<string, Blob | Promise<Blob>> = includeInformation
       ? {
-          [HTML_MIME_TYPE]: richCardHtmlBlob(png, information, item.card.name),
-          [TEXT_MIME_TYPE]: textBlob(information),
-        }
+        [HTML_MIME_TYPE]: richCardHtmlBlob(png, information, item.card.name),
+        [TEXT_MIME_TYPE]: textBlob(information),
+      }
       : { [PNG_MIME_TYPE]: png };
     await writeClipboardRepresentations(representations);
     setStatus(includeInformation ? "card image and information copied to your clipboard." : "card image copied.");
@@ -525,8 +525,8 @@ function renderResourceStatus(otCount: number, rdCount: number): void {
 
   resourceStatus.classList.remove("loading", "error");
   resourceStatus.title = [
-    `ocg/tcg: ${otCount.toLocaleString("en-US")}`,
-    `rush duel: ${rdCount.toLocaleString("en-US")}`,
+    `ot: ${otCount.toLocaleString("en-US")}`,
+    `rd: ${rdCount.toLocaleString("en-US")}`,
     `updated: ${generatedAt}`,
   ].join(" · ");
   resourceSummary.textContent = `${total.toLocaleString("en-US")} cards`;
@@ -673,7 +673,7 @@ function clearSearchTimer(): void {
 }
 
 function kindLabel(kind: CardKind): string {
-  return kind === "ot" ? "ocg/tcg" : "rush duel";
+  return kind === "ot" ? "ot" : "rd";
 }
 
 function cardsForKind(kind: KindFilter): IndexedCard[] {

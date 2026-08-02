@@ -344,19 +344,50 @@ input:disabled {
 }
 
 .actions button {
+  --action-color: #475569;
+  --action-hover-color: #334155;
+  --action-focus-color: rgb(71 85 105 / 28%);
+
   min-width: 92px;
   min-height: 38px;
-  border: 1px solid #0f766e;
+  border: 1px solid var(--action-color);
   border-radius: 8px;
   padding: 0 14px;
-  background: #0f766e;
+  background: var(--action-color);
   color: #ffffff;
   font-weight: 650;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.actions button:hover:not(:disabled) {
+  border-color: var(--action-hover-color);
+  background: var(--action-hover-color);
+}
+
+.actions button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--action-focus-color);
+}
+
+.actions #copyImageButton {
+  --action-color: #1d4ed8;
+  --action-hover-color: #1e40af;
+  --action-focus-color: rgb(29 78 216 / 25%);
+}
+
+.actions #copyCardButton {
+  --action-color: #0f766e;
+  --action-hover-color: #0b655e;
+  --action-focus-color: rgb(15 118 110 / 25%);
 }
 
 .actions #downloadButton {
-  border-color: #8a4b22;
-  background: #8a4b22;
+  --action-color: #8a4b22;
+  --action-hover-color: #713b18;
+  --action-focus-color: rgb(138 75 34 / 25%);
 }
 
 .preview {
