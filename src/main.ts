@@ -274,7 +274,7 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
     node.classList.remove("selected");
   }
   button.classList.add("selected");
-  const selectionLabel = `${kindLabel(item.kind)} · ${item.card.id} · ${item.card.name}`;
+  const selectionLabel = `${kindLabel(item.kind)} · ${item.card.id} · ${item.card.name} · ${item.card.type.join("/")}`;
   selectionNode.textContent = selectionLabel;
   selectionNode.title = selectionLabel;
   copyImageButton.disabled = !imageClipboardAvailable;
