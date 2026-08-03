@@ -44,7 +44,10 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   type: "类型",
 };
 
-const ATTRIBUTE_NAMES = ["地", "水", "炎", "风", "光", "暗", "神"] as const;
+const ATTRIBUTE_NAMES: Readonly<Record<CardKind, readonly string[]>> = {
+  ot: ["神", "光", "暗", "风", "地", "炎", "水"],
+  rd: ["光", "暗", "风", "地", "炎", "水"],
+};
 const LINK_MARKER_NAMES = ["左上", "左", "左下", "下", "右下", "右", "右上", "上"] as const;
 const LIMIT_NAMES = ["禁止", "限制", "准限制", "无限制"] as const;
 const MAXIMUM_PART_NAMES = ["左", "中央", "右"] as const;
@@ -92,7 +95,7 @@ function formatFieldValue(kind: CardKind, card: RawCard, key: string, value: Jso
     case "maximumAtk":
       return value === -1 ? "?" : formatValue(value);
     case "attribute":
-      return formatAttribute(card, value);
+      return formatAttribute(kind, card, value);
     case "legend":
       return typeof value === "boolean" ? (value ? "是" : "否") : formatValue(value);
     case "lf":
@@ -108,7 +111,7 @@ function formatFieldValue(kind: CardKind, card: RawCard, key: string, value: Jso
   }
 }
 
-function formatAttribute(card: RawCard, value: JsonValue): string {
+function formatAttribute(kind: CardKind, card: RawCard, value: JsonValue): string {
   if (card.type.includes("魔法")) {
     return "魔法";
   }
@@ -118,7 +121,7 @@ function formatAttribute(card: RawCard, value: JsonValue): string {
   if (typeof value !== "number") {
     return formatValue(value);
   }
-  return formatMappedNumber(value, ATTRIBUTE_NAMES);
+  return formatMappedNumber(value, ATTRIBUTE_NAMES[kind]);
 }
 
 function formatLimit(kind: CardKind, value: JsonValue): string {
