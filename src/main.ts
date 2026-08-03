@@ -365,7 +365,9 @@ async function copySelectedCard(mode: CopyMode): Promise<void> {
     const png = renderCardPng(manifest, item.kind, item.card, currentRenderOptions()).then((bytes) =>
       bytesToBlob(bytes, PNG_MIME_TYPE),
     );
-    const information = includeInformation ? formatCardInformation(item.kind, item.card) : "";
+    const information = includeInformation
+      ? `${formatCardInformation(item.kind, item.card)}\nURL：${window.location.href}`
+      : "";
     const representations: Record<string, Blob | Promise<Blob>> = includeInformation
       ? {
         [HTML_MIME_TYPE]: richCardHtmlBlob(png, information, item.card.name),
