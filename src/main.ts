@@ -67,33 +67,41 @@ app.innerHTML = `
     </section>
 
     <section class="preview-pane" aria-label="card preview">
-      <div class="preview-toolbar">
+      <header class="preview-header">
         <div id="selection" class="selection">no card selected</div>
-        <div class="preview-controls">
-          <div class="render-options" role="group" aria-label="card rendering options">
-            <label class="render-option">
-              <input id="compressDescriptionInput" type="checkbox" role="switch" checked disabled />
-              <span>compact card text</span>
-            </label>
-            <label class="render-option">
-              <input id="drawPasswordInput" type="checkbox" role="switch" checked disabled />
-              <span>show passcode</span>
-            </label>
-            <label class="render-option">
-              <input id="fullwidthSlashInput" type="checkbox" role="switch" disabled />
-              <span>full-width type slashes</span>
-            </label>
-          </div>
-          <div class="actions">
-            <button id="randomButton" type="button" disabled>random card</button>
-            <button id="copyImageButton" type="button" disabled>copy image</button>
-            <button id="copyCardButton" type="button" disabled>copy card + info</button>
-            <button id="downloadButton" type="button" disabled>download png</button>
-          </div>
+      </header>
+      <div class="preview-workspace">
+        <div id="preview" class="preview">
+          <div class="preview-empty">search for a card to get started.</div>
         </div>
-      </div>
-      <div id="preview" class="preview">
-        <div class="preview-empty">search for a card to get started.</div>
+        <aside class="preview-controls" aria-label="card controls">
+          <section class="control-group">
+            <h2>rendering</h2>
+            <div class="render-options" role="group" aria-label="card rendering options">
+              <label class="render-option">
+                <span>compact card text</span>
+                <input id="compressDescriptionInput" type="checkbox" role="switch" checked disabled />
+              </label>
+              <label class="render-option">
+                <span>show passcode</span>
+                <input id="drawPasswordInput" type="checkbox" role="switch" checked disabled />
+              </label>
+              <label class="render-option">
+                <span>full-width type slashes</span>
+                <input id="fullwidthSlashInput" type="checkbox" role="switch" disabled />
+              </label>
+            </div>
+          </section>
+          <section class="control-group">
+            <h2>actions</h2>
+            <div class="actions">
+              <button id="randomButton" type="button" disabled>random card</button>
+              <button id="copyCardButton" type="button" disabled>copy card + info</button>
+              <button id="copyImageButton" type="button" disabled>copy image</button>
+              <button id="downloadButton" type="button" disabled>download png</button>
+            </div>
+          </section>
+        </aside>
       </div>
     </section>
   </main>
