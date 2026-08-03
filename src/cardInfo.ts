@@ -69,7 +69,8 @@ export function formatCardInformation(kind: CardKind, card: RawCard): string {
 
 function orderedFields(card: RawCard): Array<[string, JsonValue]> {
   const entries = Object.entries(card).filter(
-    (entry): entry is [string, JsonValue] => entry[1] !== undefined,
+    (entry): entry is [string, JsonValue] =>
+      entry[1] !== undefined && !(entry[0] === "alias" && (entry[1] === 0 || entry[1] === null)),
   );
   const values = new Map(entries);
   const ordered: Array<[string, JsonValue]> = [];
@@ -88,8 +89,6 @@ function orderedFields(card: RawCard): Array<[string, JsonValue]> {
 
 function formatFieldValue(kind: CardKind, card: RawCard, key: string, value: JsonValue): string {
   switch (key) {
-    case "alias":
-      return value === 0 ? "无" : formatValue(value);
     case "atk":
     case "def":
     case "maximumAtk":
