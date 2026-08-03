@@ -41,7 +41,11 @@ function rdAssetFiles(card: RawCard): string[] {
     files.push("assets/rd/legend/0.png");
   }
   if (types.has("怪兽")) {
-    files.push("assets/rd/bar/0.png", "assets/rd/level/0.png");
+    files.push(
+      "assets/rd/bar/0.png",
+      "assets/rd/level/0.png",
+      `assets/rd/level/${rdLevel(card.level)}.png`,
+    );
     if (card.maximumAtk !== undefined && card.maximumAtk !== null) {
       files.push("assets/rd/bar/1.png");
     }
@@ -55,6 +59,13 @@ function rdAssetFiles(card: RawCard): string[] {
   }
 
   return unique(files);
+}
+
+function rdLevel(value: number | undefined): string {
+  if (value === undefined || !Number.isSafeInteger(value) || value < 1 || value > 13) {
+    throw new Error(`Unsupported RD card level: ${String(value)}`);
+  }
+  return String(value);
 }
 
 function otFrame(types: ReadonlySet<string>): string {

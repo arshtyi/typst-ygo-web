@@ -10,6 +10,7 @@ export type RawCard = {
   description: string;
   attribute?: number;
   legend?: boolean;
+  level?: number;
   linkMarker?: number[];
   maximumAtk?: number | null;
   pendulumDescription?: string;
