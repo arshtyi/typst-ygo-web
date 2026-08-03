@@ -35,4 +35,5 @@ export type AssetManifest = {
 export type CardRenderOptions = {
   compressDescription: boolean;
   drawPassword: boolean;
+  fullwidthSlash: boolean;
 };

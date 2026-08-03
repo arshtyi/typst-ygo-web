@@ -10,7 +10,12 @@ export function createCardDocument(
     "#set page(width: auto, height: auto, margin: 0pt)",
     `#import "/lib/mod.typ": ${cardFunction}`,
     `#let card = json("${cardPath}")`,
-    `#${cardFunction}(card, compact: ${options.compressDescription}, password: ${options.drawPassword})`,
+    `#${cardFunction}(`,
+    "  card,",
+    `  compact: ${options.compressDescription},`,
+    `  password: ${options.drawPassword},`,
+    `  fullwidth-slash: ${options.fullwidthSlash},`,
+    ")",
     "",
   ].join("\n");
 }

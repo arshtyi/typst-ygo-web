@@ -28,6 +28,7 @@ type UrlState = {
   cardId: number | null;
   compressDescription: boolean;
   drawPassword: boolean;
+  fullwidthSlash: boolean;
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -78,6 +79,10 @@ app.innerHTML = `
               <input id="drawPasswordInput" type="checkbox" role="switch" checked disabled />
               <span>show passcode</span>
             </label>
+            <label class="render-option">
+              <input id="fullwidthSlashInput" type="checkbox" role="switch" disabled />
+              <span>full-width type slashes</span>
+            </label>
           </div>
           <div class="actions">
             <button id="randomButton" type="button" disabled>random card</button>
@@ -106,9 +111,10 @@ const downloadButton = getElement<HTMLButtonElement>("downloadButton");
 const randomButton = getElement<HTMLButtonElement>("randomButton");
 const compressDescriptionInput = getElement<HTMLInputElement>("compressDescriptionInput");
 const drawPasswordInput = getElement<HTMLInputElement>("drawPasswordInput");
+const fullwidthSlashInput = getElement<HTMLInputElement>("fullwidthSlashInput");
 const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
-const renderOptionInputs = [compressDescriptionInput, drawPasswordInput];
+const renderOptionInputs = [compressDescriptionInput, drawPasswordInput, fullwidthSlashInput];
 const imageClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE);
 const cardClipboardAvailable = supportsClipboardTypes(HTML_MIME_TYPE, TEXT_MIME_TYPE);
 
@@ -441,6 +447,7 @@ function currentRenderOptions(): CardRenderOptions {
   return {
     compressDescription: compressDescriptionInput.checked,
     drawPassword: drawPasswordInput.checked,
+    fullwidthSlash: fullwidthSlashInput.checked,
   };
 }
 
@@ -481,6 +488,7 @@ function setStatus(message: string, error = false): void {
 async function applyUrlState(state: UrlState): Promise<void> {
   compressDescriptionInput.checked = state.compressDescription;
   drawPasswordInput.checked = state.drawPassword;
+  fullwidthSlashInput.checked = state.fullwidthSlash;
   setKindFilter(state.kind);
   searchInput.value = state.query;
 
@@ -559,6 +567,7 @@ function readUrlState(): UrlState {
       DEFAULT_CARD_RENDER_OPTIONS.compressDescription,
     ),
     drawPassword: parseBooleanUrlParam(params.get("password"), DEFAULT_CARD_RENDER_OPTIONS.drawPassword),
+    fullwidthSlash: parseBooleanUrlParam(params.get("fullwidth"), DEFAULT_CARD_RENDER_OPTIONS.fullwidthSlash),
   };
 }
 
@@ -595,6 +604,12 @@ function updateUrlState(): void {
     "password",
     drawPasswordInput.checked,
     DEFAULT_CARD_RENDER_OPTIONS.drawPassword,
+  );
+  setBooleanUrlParam(
+    url.searchParams,
+    "fullwidth",
+    fullwidthSlashInput.checked,
+    DEFAULT_CARD_RENDER_OPTIONS.fullwidthSlash,
   );
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;

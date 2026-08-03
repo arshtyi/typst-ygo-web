@@ -10,6 +10,7 @@ const SELECTED_CARD_PATH = "/runtime/selected-card.json";
 export const DEFAULT_CARD_RENDER_OPTIONS: Readonly<CardRenderOptions> = {
   compressDescription: true,
   drawPassword: true,
+  fullwidthSlash: false,
 };
 const MAX_MAPPED_IMAGES = 6;
 const PNG_EXPORT_PPI = 600;
