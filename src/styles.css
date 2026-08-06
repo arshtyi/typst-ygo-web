@@ -266,7 +266,7 @@ select:disabled {
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) clamp(180px, 20vw, 220px);
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 24vw, 280px);
   overflow: hidden;
 }
 
@@ -319,6 +319,10 @@ select:disabled {
   line-height: 1.25;
 }
 
+.render-option > span {
+  white-space: nowrap;
+}
+
 .render-option input {
   position: relative;
   width: 36px;
@@ -363,8 +367,8 @@ select:disabled {
 }
 
 .render-option select {
+  width: 96px;
   min-width: 0;
-  max-width: 92px;
   border: 1px solid #aaa496;
   border-radius: 6px;
   padding: 4px 6px;
@@ -403,6 +407,7 @@ select:disabled {
   color: #ffffff;
   font-weight: 650;
   text-align: left;
+  white-space: nowrap;
   transition:
     border-color 140ms ease,
     background 140ms ease,
@@ -501,7 +506,7 @@ select:disabled {
   }
 
   .preview-workspace {
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, 1fr) 180px;
   }
 
   .preview-controls {
@@ -511,9 +516,15 @@ select:disabled {
 
   .render-option {
     min-height: 40px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
     padding: 7px 8px;
     font-size: 12px;
+  }
+
+  .render-option input,
+  .render-option select {
+    justify-self: end;
   }
 
   .actions button {

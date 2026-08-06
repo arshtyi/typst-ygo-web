@@ -21,8 +21,8 @@ const typstLibRoot = join(typstYgoRoot, "lib");
 const assetsRoot = join(ygoAssetsRoot, "assets");
 
 const cardUrls = {
-  ot: "https://github.com/arshtyi/ygo-cards/releases/download/latest/ot.json",
-  rd: "https://github.com/arshtyi/ygo-cards/releases/download/latest/rd.json",
+  ot: "https://github.com/arshtyi/ygo-cards/releases/latest/download/ot.json",
+  rd: "https://github.com/arshtyi/ygo-cards/releases/latest/download/rd.json",
 };
 
 await assertSubmodule(typstYgoRoot, "lib/mod.typ");
