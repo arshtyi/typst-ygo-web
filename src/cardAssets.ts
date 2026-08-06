@@ -1,7 +1,11 @@
-import type { CardKind, RawCard } from "./types";
+import type { CardKind, CardLimit, RawCard } from "./types";
 
-export function cardAssetFiles(kind: CardKind, card: RawCard): string[] {
-  return kind === "ot" ? otAssetFiles(card) : rdAssetFiles(card);
+export function cardAssetFiles(kind: CardKind, card: RawCard, limit: CardLimit = null): string[] {
+  const files = kind === "ot" ? otAssetFiles(card) : rdAssetFiles(card);
+  if (limit !== null) {
+    files.push(`assets/${kind}/lf/${limit}.png`);
+  }
+  return unique(files);
 }
 
 function otAssetFiles(card: RawCard): string[] {

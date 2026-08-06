@@ -1,4 +1,5 @@
 export type CardKind = "ot" | "rd";
+export type CardLimit = 0 | 1 | 2 | null;
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -36,4 +37,5 @@ export type CardRenderOptions = {
   compressDescription: boolean;
   drawPassword: boolean;
   fullwidthSlash: boolean;
+  limit: CardLimit;
 };

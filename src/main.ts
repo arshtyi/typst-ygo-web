@@ -14,7 +14,7 @@ import {
   renderCardPng,
   renderCardSvg,
 } from "./typstRenderer";
-import type { AssetManifest, CardKind, CardRenderOptions, IndexedCard, RawCard } from "./types";
+import type { AssetManifest, CardKind, CardLimit, CardRenderOptions, IndexedCard, RawCard } from "./types";
 
 type KindFilter = CardKind | "all";
 type CopyMode = "image" | "image-and-information";
@@ -29,6 +29,7 @@ type UrlState = {
   compressDescription: boolean;
   drawPassword: boolean;
   fullwidthSlash: boolean;
+  limit: CardLimit;
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -90,6 +91,15 @@ app.innerHTML = `
                 <span>full-width type slashes</span>
                 <input id="fullwidthSlashInput" type="checkbox" role="switch" disabled />
               </label>
+              <label class="render-option">
+                <span>limit marker</span>
+                <select id="limitInput" disabled>
+                  <option value="">none</option>
+                  <option value="0">forbidden</option>
+                  <option value="1">limited</option>
+                  <option value="2">semi-limited</option>
+                </select>
+              </label>
             </div>
           </section>
           <section class="control-group">
@@ -120,9 +130,10 @@ const randomButton = getElement<HTMLButtonElement>("randomButton");
 const compressDescriptionInput = getElement<HTMLInputElement>("compressDescriptionInput");
 const drawPasswordInput = getElement<HTMLInputElement>("drawPasswordInput");
 const fullwidthSlashInput = getElement<HTMLInputElement>("fullwidthSlashInput");
+const limitInput = getElement<HTMLSelectElement>("limitInput");
 const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
-const renderOptionInputs = [compressDescriptionInput, drawPasswordInput, fullwidthSlashInput];
+const renderOptionControls = [compressDescriptionInput, drawPasswordInput, fullwidthSlashInput, limitInput];
 const imageClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE);
 const cardClipboardAvailable = supportsClipboardTypes(HTML_MIME_TYPE, TEXT_MIME_TYPE);
 
@@ -173,8 +184,8 @@ downloadButton.addEventListener("click", () => {
   void downloadSelectedCard();
 });
 
-for (const input of renderOptionInputs) {
-  input.addEventListener("change", () => {
+for (const control of renderOptionControls) {
+  control.addEventListener("change", () => {
     updateUrlState();
     if (selected && manifest) {
       void renderSelectedCard("preview updated.");
@@ -458,6 +469,7 @@ function currentRenderOptions(): CardRenderOptions {
     compressDescription: compressDescriptionInput.checked,
     drawPassword: drawPasswordInput.checked,
     fullwidthSlash: fullwidthSlashInput.checked,
+    limit: parseCardLimit(limitInput.value),
   };
 }
 
@@ -471,8 +483,8 @@ function setBusy(busy: boolean, message?: string): void {
   for (const button of kindButtons) {
     button.disabled = disabled;
   }
-  for (const input of renderOptionInputs) {
-    input.disabled = disabled;
+  for (const control of renderOptionControls) {
+    control.disabled = disabled;
   }
   for (const button of resultsNode.querySelectorAll<HTMLButtonElement>(".result-item")) {
     button.disabled = disabled;
@@ -499,6 +511,7 @@ async function applyUrlState(state: UrlState): Promise<void> {
   compressDescriptionInput.checked = state.compressDescription;
   drawPasswordInput.checked = state.drawPassword;
   fullwidthSlashInput.checked = state.fullwidthSlash;
+  limitInput.value = state.limit === null ? "" : String(state.limit);
   setKindFilter(state.kind);
   searchInput.value = state.query;
 
@@ -578,6 +591,7 @@ function readUrlState(): UrlState {
     ),
     drawPassword: parseBooleanUrlParam(params.get("password"), DEFAULT_CARD_RENDER_OPTIONS.drawPassword),
     fullwidthSlash: parseBooleanUrlParam(params.get("fullwidth"), DEFAULT_CARD_RENDER_OPTIONS.fullwidthSlash),
+    limit: parseCardLimit(params.get("limit")),
   };
 }
 
@@ -621,6 +635,7 @@ function updateUrlState(): void {
     fullwidthSlashInput.checked,
     DEFAULT_CARD_RENDER_OPTIONS.fullwidthSlash,
   );
+  setCardLimitUrlParam(url.searchParams, parseCardLimit(limitInput.value));
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -653,6 +668,27 @@ function parseBooleanUrlParam(value: string | null, defaultValue: boolean): bool
     return true;
   }
   return defaultValue;
+}
+
+function parseCardLimit(value: string | null): CardLimit {
+  if (value === "0") {
+    return 0;
+  }
+  if (value === "1") {
+    return 1;
+  }
+  if (value === "2") {
+    return 2;
+  }
+  return null;
+}
+
+function setCardLimitUrlParam(params: URLSearchParams, value: CardLimit): void {
+  if (value === null) {
+    params.delete("limit");
+  } else {
+    params.set("limit", String(value));
+  }
 }
 
 function setBooleanUrlParam(

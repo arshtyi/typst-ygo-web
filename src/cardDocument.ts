@@ -15,6 +15,7 @@ export function createCardDocument(
     `  compact: ${options.compressDescription},`,
     `  password: ${options.drawPassword},`,
     `  fullwidth-slash: ${options.fullwidthSlash},`,
+    `  limit: ${options.limit ?? "none"},`,
     ")",
     "",
   ].join("\n");

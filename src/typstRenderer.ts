@@ -11,6 +11,7 @@ export const DEFAULT_CARD_RENDER_OPTIONS: Readonly<CardRenderOptions> = {
   compressDescription: true,
   drawPassword: true,
   fullwidthSlash: false,
+  limit: null,
 };
 const MAX_MAPPED_IMAGES = 6;
 const PNG_EXPORT_PPI = 600;
@@ -31,9 +32,14 @@ export async function preloadCardResources(
   manifest: AssetManifest,
   kind: CardKind,
   card: RawCard,
+  options: Readonly<CardRenderOptions> = DEFAULT_CARD_RENDER_OPTIONS,
 ): Promise<void> {
   configureRuntime(manifest);
-  await Promise.all([loadTypstSources(manifest), loadStaticAssets(manifest, kind, card), loadCardImage(kind, card)]);
+  await Promise.all([
+    loadTypstSources(manifest),
+    loadStaticAssets(manifest, kind, card, options),
+    loadCardImage(kind, card),
+  ]);
 }
 
 export async function renderCardSvg(
@@ -101,7 +107,7 @@ async function prepareDocument(
   card: RawCard,
   options: Readonly<CardRenderOptions>,
 ): Promise<void> {
-  await preloadCardResources(manifest, kind, card);
+  await preloadCardResources(manifest, kind, card, options);
 
   await mutateCompiler(() => $typst.mapShadow(SELECTED_CARD_PATH, textEncoder.encode(JSON.stringify(card))));
   await mutateCompiler(() => $typst.addSource(MAIN_FILE_PATH, createCardDocument(kind, SELECTED_CARD_PATH, options)));
@@ -150,9 +156,14 @@ async function loadTypstSources(manifest: AssetManifest): Promise<void> {
   return task;
 }
 
-async function loadStaticAssets(manifest: AssetManifest, kind: CardKind, card: RawCard): Promise<void> {
+async function loadStaticAssets(
+  manifest: AssetManifest,
+  kind: CardKind,
+  card: RawCard,
+  options: Readonly<CardRenderOptions>,
+): Promise<void> {
   const availableFiles = new Set(manifest.staticAssetFiles);
-  const files = cardAssetFiles(kind, card);
+  const files = cardAssetFiles(kind, card, options.limit);
   for (const file of files) {
     if (!availableFiles.has(file)) {
       throw new Error(`Required card asset is missing from the manifest: ${file}`);

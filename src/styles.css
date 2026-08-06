@@ -27,7 +27,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -36,7 +37,8 @@ button {
 }
 
 button:disabled,
-input:disabled {
+input:disabled,
+select:disabled {
   cursor: not-allowed;
   opacity: 0.62;
 }
@@ -360,7 +362,25 @@ input:disabled {
   outline-offset: 2px;
 }
 
-.render-option:has(input:disabled) {
+.render-option select {
+  min-width: 0;
+  max-width: 92px;
+  border: 1px solid #aaa496;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: #ffffff;
+  color: #4f493e;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.render-option select:focus-visible {
+  outline: 3px solid rgb(15 118 110 / 22%);
+  outline-offset: 2px;
+}
+
+.render-option:has(input:disabled),
+.render-option:has(select:disabled) {
   cursor: not-allowed;
 }
 
