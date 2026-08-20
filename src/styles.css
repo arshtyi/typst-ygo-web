@@ -436,6 +436,12 @@ select:disabled {
   --action-focus-color: rgb(15 118 110 / 25%);
 }
 
+.actions #copyInformationButton {
+  --action-color: #0e7490;
+  --action-hover-color: #155e75;
+  --action-focus-color: rgb(14 116 144 / 25%);
+}
+
 .actions #downloadButton {
   --action-color: #8a4b22;
   --action-hover-color: #713b18;

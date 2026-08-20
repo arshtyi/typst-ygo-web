@@ -1,6 +1,7 @@
 import "./styles.css";
 import { formatCardInformation } from "./cardInfo";
 import {
+  cardInformationHtmlBlob,
   richCardHtmlBlob,
   supportsClipboardTypes,
   textBlob,
@@ -17,7 +18,7 @@ import {
 import type { AssetManifest, CardKind, CardLimit, CardRenderOptions, IndexedCard, RawCard } from "./types";
 
 type KindFilter = CardKind | "all";
-type CopyMode = "image" | "image-and-information";
+type CopyMode = "image" | "image-and-information" | "information";
 const PNG_MIME_TYPE = "image/png";
 const HTML_MIME_TYPE = "text/html";
 const TEXT_MIME_TYPE = "text/plain";
@@ -107,6 +108,7 @@ app.innerHTML = `
             <div class="actions">
               <button id="randomButton" type="button" disabled>random card</button>
               <button id="copyCardButton" type="button" disabled>copy card + info</button>
+              <button id="copyInformationButton" type="button" disabled>copy info</button>
               <button id="copyImageButton" type="button" disabled>copy image</button>
               <button id="downloadButton" type="button" disabled>download png</button>
             </div>
@@ -125,6 +127,7 @@ const resultsNode = getElement<HTMLDivElement>("results");
 const selectionNode = getElement<HTMLDivElement>("selection");
 const copyImageButton = getElement<HTMLButtonElement>("copyImageButton");
 const copyCardButton = getElement<HTMLButtonElement>("copyCardButton");
+const copyInformationButton = getElement<HTMLButtonElement>("copyInformationButton");
 const downloadButton = getElement<HTMLButtonElement>("downloadButton");
 const randomButton = getElement<HTMLButtonElement>("randomButton");
 const compressDescriptionInput = getElement<HTMLInputElement>("compressDescriptionInput");
@@ -135,13 +138,14 @@ const previewNode = getElement<HTMLDivElement>("preview");
 const kindButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-kind]"));
 const renderOptionControls = [compressDescriptionInput, drawPasswordInput, fullwidthSlashInput, limitInput];
 const imageClipboardAvailable = supportsClipboardTypes(PNG_MIME_TYPE);
-const cardClipboardAvailable = supportsClipboardTypes(HTML_MIME_TYPE, TEXT_MIME_TYPE);
+const richClipboardAvailable = supportsClipboardTypes(HTML_MIME_TYPE, TEXT_MIME_TYPE);
 
 if (!imageClipboardAvailable) {
   copyImageButton.title = "copying images requires a supported browser over https.";
 }
-if (!cardClipboardAvailable) {
+if (!richClipboardAvailable) {
   copyCardButton.title = "copying images with card information requires a supported browser over https.";
+  copyInformationButton.title = "copying card information requires a supported browser over https.";
 }
 
 let manifest: AssetManifest | null = null;
@@ -178,6 +182,10 @@ copyImageButton.addEventListener("click", () => {
 
 copyCardButton.addEventListener("click", () => {
   void copySelectedCard("image-and-information");
+});
+
+copyInformationButton.addEventListener("click", () => {
+  void copySelectedCard("information");
 });
 
 downloadButton.addEventListener("click", () => {
@@ -303,7 +311,8 @@ function selectCard(item: IndexedCard, button: HTMLButtonElement, { syncUrl = tr
   selectionNode.textContent = selectionLabel;
   selectionNode.title = selectionLabel;
   copyImageButton.disabled = !imageClipboardAvailable;
-  copyCardButton.disabled = !cardClipboardAvailable;
+  copyCardButton.disabled = !richClipboardAvailable;
+  copyInformationButton.disabled = !richClipboardAvailable;
   downloadButton.disabled = false;
   setEmptyPreview("double-click this card to see the preview.");
   if (manifest) {
@@ -322,6 +331,7 @@ function clearSelection(): void {
   selectionNode.removeAttribute("title");
   copyImageButton.disabled = true;
   copyCardButton.disabled = true;
+  copyInformationButton.disabled = true;
   downloadButton.disabled = true;
   setEmptyPreview("search for a card to get started.");
 }
@@ -365,34 +375,63 @@ async function downloadSelectedCard(): Promise<void> {
 
 async function copySelectedCard(mode: CopyMode): Promise<void> {
   const includeInformation = mode === "image-and-information";
-  const clipboardAvailable = includeInformation ? cardClipboardAvailable : imageClipboardAvailable;
-  if (!selected || !manifest || !clipboardAvailable) {
+  const informationOnly = mode === "information";
+  const clipboardAvailable = mode === "image" ? imageClipboardAvailable : richClipboardAvailable;
+  const currentManifest = manifest;
+  if (!selected || !clipboardAvailable || (!informationOnly && !currentManifest)) {
     return;
   }
 
   const item = selected;
-  setBusy(true, includeInformation ? "copying the card and its information..." : "copying the card image...");
+  setBusy(
+    true,
+    informationOnly
+      ? "copying the card information..."
+      : includeInformation
+        ? "copying the card and its information..."
+        : "copying the card image...",
+  );
   try {
-    const png = renderCardPng(manifest, item.kind, item.card, currentRenderOptions()).then((bytes) =>
-      bytesToBlob(bytes, PNG_MIME_TYPE),
-    );
-    const information = includeInformation
-      ? `${formatCardInformation(item.kind, item.card)}\nURL：${window.location.href}`
-      : "";
-    const representations: Record<string, Blob | Promise<Blob>> = includeInformation
-      ? {
-        [HTML_MIME_TYPE]: richCardHtmlBlob(png, information, item.card.name),
+    let representations: Record<string, Blob | Promise<Blob>>;
+    if (informationOnly) {
+      const information = formatCardInformation(item.kind, item.card);
+      representations = {
+        [HTML_MIME_TYPE]: cardInformationHtmlBlob(information),
         [TEXT_MIME_TYPE]: textBlob(information),
+      };
+    } else {
+      if (!currentManifest) {
+        return;
       }
-      : { [PNG_MIME_TYPE]: png };
+      const png = renderCardPng(currentManifest, item.kind, item.card, currentRenderOptions()).then((bytes) =>
+        bytesToBlob(bytes, PNG_MIME_TYPE),
+      );
+      if (includeInformation) {
+        const information = `${formatCardInformation(item.kind, item.card)}\nURL：${window.location.href}`;
+        representations = {
+          [HTML_MIME_TYPE]: richCardHtmlBlob(png, information, item.card.name),
+          [TEXT_MIME_TYPE]: textBlob(information),
+        };
+      } else {
+        representations = { [PNG_MIME_TYPE]: png };
+      }
+    }
     await writeClipboardRepresentations(representations);
-    setStatus(includeInformation ? "card image and information copied to your clipboard." : "card image copied.");
+    setStatus(
+      informationOnly
+        ? "card information copied to your clipboard."
+        : includeInformation
+          ? "card image and information copied to your clipboard."
+          : "card image copied.",
+    );
   } catch (error) {
     console.error(`Failed to copy card ${item.card.id}.`, error);
     setStatus(
-      includeInformation
-        ? "we couldn't copy the card and its information. check your clipboard permission and try again."
-        : "we couldn't copy the card image. check your clipboard permission and try again.",
+      informationOnly
+        ? "we couldn't copy the card information. check your clipboard permission and try again."
+        : includeInformation
+          ? "we couldn't copy the card and its information. check your clipboard permission and try again."
+          : "we couldn't copy the card image. check your clipboard permission and try again.",
       true,
     );
   } finally {
@@ -476,7 +515,8 @@ function currentRenderOptions(): CardRenderOptions {
 function setBusy(busy: boolean, message?: string): void {
   const disabled = busy || !cardLibraryAvailable;
   copyImageButton.disabled = disabled || !selected || !imageClipboardAvailable;
-  copyCardButton.disabled = disabled || !selected || !cardClipboardAvailable;
+  copyCardButton.disabled = disabled || !selected || !richClipboardAvailable;
+  copyInformationButton.disabled = disabled || !selected || !richClipboardAvailable;
   downloadButton.disabled = disabled || !selected;
   randomButton.disabled = disabled || !hasRandomCards();
   searchInput.disabled = disabled;
