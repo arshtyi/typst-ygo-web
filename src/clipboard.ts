@@ -24,6 +24,10 @@ export function textBlob(text: string): Blob {
   return new Blob([text], { type: "text/plain" });
 }
 
+export function cardInformationHtmlBlob(information: string): Blob {
+  return new Blob([cardInformationHtml(information)], { type: "text/html" });
+}
+
 export async function richCardHtmlBlob(
   image: Blob | Promise<Blob>,
   information: string,
@@ -33,10 +37,14 @@ export async function richCardHtmlBlob(
   const html = [
     '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">',
     `<img src="${imageUrl}" alt="${escapeHtml(cardName)}" style="display:block;width:280px;max-width:100%;height:auto">`,
-    `<div style="white-space:pre-wrap;font-family:system-ui,sans-serif;line-height:1.5">${escapeHtml(information).replaceAll("\n", "<br>")}</div>`,
+    cardInformationHtml(information),
     "</div>",
   ].join("");
   return new Blob([html], { type: "text/html" });
+}
+
+function cardInformationHtml(information: string): string {
+  return `<div style="white-space:pre-wrap;font-family:system-ui,sans-serif;line-height:1.5">${escapeHtml(information).replaceAll("\n", "<br>")}</div>`;
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
